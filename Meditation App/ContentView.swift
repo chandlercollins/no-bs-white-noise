@@ -46,7 +46,6 @@ struct ContentView: View {
     // MARK: - UI State
     @State private var isPlaying = false
     @State private var pulseAnimation = false
-    @State private var volume: Float = 1.0
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
@@ -76,7 +75,6 @@ struct ContentView: View {
                 // Main content
                 VStack(spacing: 40) {
                     playStopButton
-                    volumeSlider
                 }
                 
                 Spacer()
@@ -143,73 +141,6 @@ struct ContentView: View {
         }
     }
     
-    /// Volume control slider with Liquid Glass design
-    private var volumeSlider: some View {
-        VStack(spacing: 8) {
-            // Volume icon
-            Image(systemName: "speaker.wave.2.fill")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(textColorForCurrentTheme.opacity(0.7))
-            
-            // Custom liquid glass slider
-            ZStack {
-                // Track background
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(sliderTrackBackgroundColor)
-                    .frame(height: 6)
-                
-                // Active track fill - only extends to center of thumb
-                HStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(sliderActiveTrack)
-                        .frame(width: CGFloat(volume) * 180 + 10, height: 6) // 180 available space + 10 for thumb center
-                        .clipped()
-                    Spacer(minLength: 0)
-                }
-                
-                // Glass thumb
-                HStack {
-                    Spacer()
-                        .frame(width: CGFloat(volume) * 180) // 200 - 20 for thumb width
-                    
-                    sliderThumb
-                    
-                    Spacer()
-                }
-            }
-            .frame(width: 200)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let newValue = max(0, min(1, Float(value.location.x / 200)))
-                        volume = newValue
-                        updateVolume()
-                    }
-            )
-        }
-    }
-    
-    /// Liquid glass slider thumb with interactive scaling
-    private var sliderThumb: some View {
-        Circle()
-            .fill(sliderThumbColor)
-            .frame(width: 20, height: 20)
-            .background(.ultraThinMaterial, in: Circle())
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-            .scaleEffect(1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: volume)
-    }
-    
-    /// Binding for volume slider with automatic audio update
-    private var volumeBinding: Binding<Double> {
-        Binding(
-            get: { Double(volume) },
-            set: { newValue in
-                volume = Float(newValue)
-                updateVolume()
-            }
-        )
-    }
     
     // MARK: - Theme Components
     
@@ -290,10 +221,6 @@ struct ContentView: View {
         effectiveColorScheme == .dark ? Color.red.opacity(0.8) : Color.red
     }
     
-    /// Slider accent color with theme awareness
-    private var sliderAccentColor: Color {
-        effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
-    }
     
     /// Liquid Glass background for menu overlay following Apple's design language
     private var liquidGlassBackground: some View {
@@ -316,20 +243,6 @@ struct ContentView: View {
         effectiveColorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.3)
     }
     
-    /// Slider track background color with theme awareness
-    private var sliderTrackBackgroundColor: Color {
-        effectiveColorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.06)
-    }
-    
-    /// Active slider track with theme-aware coloring
-    private var sliderActiveTrack: Color {
-        effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
-    }
-    
-    /// Slider thumb color with glass effect
-    private var sliderThumbColor: Color {
-        effectiveColorScheme == .dark ? Color.white.opacity(0.9) : Color.white
-    }
     
     /// Bottom menu button with up caret
     private var bottomMenuButton: some View {
@@ -531,9 +444,9 @@ struct ContentView: View {
 
     // MARK: - Audio Fading
     
-    /// Gradually increases volume from 0 to current volume setting
+    /// Gradually increases volume from 0 to system volume
     private func fadeIn(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 2.0, completion: (() -> Void)? = nil) {
-        performFade(mixerNode: mixerNode, duration: duration, startVolume: 0.0, endVolume: volume, completion: completion)
+        performFade(mixerNode: mixerNode, duration: duration, startVolume: 0.0, endVolume: 1.0, completion: completion)
     }
 
     /// Gradually decreases volume to 0 then executes completion
@@ -578,10 +491,6 @@ struct ContentView: View {
         }
     }
 
-    /// Updates the audio engine volume to match current volume setting
-    private func updateVolume() {
-        audioEngine?.mainMixerNode.outputVolume = volume
-    }
     
     // MARK: - Theme Actions
     
