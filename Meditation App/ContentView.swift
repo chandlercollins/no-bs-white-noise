@@ -208,17 +208,22 @@ struct ContentView: View {
                 Image(systemName: isPlaying ? "stop.fill" : "play.fill")
                     .font(.system(size: playButtonIconSize))
                     .foregroundColor(.white)
-                    .animation(.easeInOut(duration: 0.2), value: isPlaying)
+                    .animation(.easeInOut(duration: 0.15), value: isPlaying)
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: isPlaying)
+        .animation(.easeInOut(duration: 0.15), value: isPlaying)
         .onAppear { 
             pulseAnimation = false 
         }
         .onChange(of: isPlaying) { _, newValue in
-            // Smooth transition with slight delay to prevent conflicts
-            withAnimation(.easeInOut(duration: 0.2)) {
-                pulseAnimation = newValue
+            // Prevent animation conflicts during sound transitions
+            guard !isSoundTransitioning else { return }
+            
+            // Delay pulse animation slightly to prevent conflicts with play state changes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    self.pulseAnimation = newValue
+                }
             }
         }
     }
@@ -783,6 +788,11 @@ struct ContentView: View {
             isPlaying = false
         }
         
+        stopAudioWithoutUIUpdate()
+    }
+    
+    /// Stops audio without updating UI state (for sound switching)
+    private func stopAudioWithoutUIUpdate() {
         // Stop MP3 audio players if they're playing
         if let firePlayer = fireAudioPlayer {
             firePlayer.stop()
@@ -966,10 +976,11 @@ struct ContentView: View {
         }
         
         // For switching between audio systems (generated ↔ MP3)
-        stopWhiteNoise()
+        // Stop current audio without changing UI state
+        stopAudioWithoutUIUpdate()
         
-        // Minimal delay for MP3 sound transitions
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+        // Minimal delay for clean transition
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.playWhiteNoise()
             // Clear transition flag after restart
             self.isSoundTransitioning = false
