@@ -239,6 +239,27 @@ struct ContentView: View {
         effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
     }
     
+    /// Liquid Glass background for menu overlay following Apple's design language
+    private var liquidGlassBackground: some View {
+        ZStack {
+            // Base translucent layer
+            if effectiveColorScheme == .dark {
+                // Dark mode: lighter silver translucent
+                Color.white.opacity(0.08)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                // Light mode: mid to dark grey translucent
+                Color.black.opacity(0.05)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+        }
+    }
+    
+    /// Menu handle color with proper contrast
+    private var menuHandleColor: Color {
+        effectiveColorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.3)
+    }
+    
     /// Bottom menu button with up caret
     private var bottomMenuButton: some View {
         Button(action: toggleMenu) {
@@ -253,47 +274,48 @@ struct ContentView: View {
     
     /// Overlay menu that slides up from bottom
     private var menuOverlay: some View {
-        ZStack {
-            // Background overlay
-            Color.black.opacity(0.3)
-                .ignoresSafeArea(.all)
+        VStack {
+            Spacer()
+            
+            // Menu content - full width drawer with Liquid Glass design
+            VStack(spacing: 20) {
+                // Menu handle
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(menuHandleColor)
+                    .frame(width: 40, height: 4)
+                    .padding(.top, 12)
+                
+                // Noise type selector
+                HStack(spacing: 30) {
+                    noiseTypeButton(.white)
+                    noiseTypeButton(.brown)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+            }
+            .frame(maxWidth: .infinity)
+            .background(
+                liquidGlassBackground
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: -8)
+            )
+            .ignoresSafeArea(.container, edges: .horizontal)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
+        .onTapGesture {
+            // Tap outside menu to close
+        }
+        .background(
+            Color.clear
+                .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                         isMenuExpanded = false
                     }
                 }
-            
-            VStack {
-                Spacer()
-                
-                // Menu content - full width drawer
-                VStack(spacing: 20) {
-                    // Menu handle
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(textColorForCurrentTheme.opacity(0.3))
-                        .frame(width: 40, height: 4)
-                        .padding(.top, 12)
-                    
-                    // Noise type selector
-                    HStack(spacing: 30) {
-                        noiseTypeButton(.white)
-                        noiseTypeButton(.brown)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
-                }
-                .frame(maxWidth: .infinity)
-                .background(
-                    backgroundColorForCurrentTheme
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-                )
-                .ignoresSafeArea(.container, edges: .horizontal)
-            }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
+        )
     }
     
     /// Noise type toggle button
