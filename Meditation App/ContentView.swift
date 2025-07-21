@@ -266,7 +266,7 @@ struct ContentView: View {
             VStack {
                 Spacer()
                 
-                // Menu content
+                // Menu content - full width drawer
                 VStack(spacing: 20) {
                     // Menu handle
                     RoundedRectangle(cornerRadius: 2)
@@ -280,15 +280,16 @@ struct ContentView: View {
                         noiseTypeButton(.brown)
                         Spacer()
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
                 }
+                .frame(maxWidth: .infinity)
                 .background(
                     backgroundColorForCurrentTheme
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
                 )
-                .padding(.horizontal)
+                .ignoresSafeArea(.container, edges: .horizontal)
             }
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
