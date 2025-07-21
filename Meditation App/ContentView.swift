@@ -343,7 +343,7 @@ struct ContentView: View {
     
     /// Cycles through theme modes: light → dark → auto → light
     private func cycleThemeMode() {
-        triggerHapticFeedback()
+        triggerLightHapticFeedback()
         
         switch themeMode {
         case .light:
@@ -360,6 +360,12 @@ struct ContentView: View {
     /// Triggers haptic feedback to simulate physical button press
     private func triggerHapticFeedback() {
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+    
+    /// Triggers lighter haptic feedback for secondary actions like theme switching
+    private func triggerLightHapticFeedback() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
     }
 }
