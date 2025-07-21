@@ -158,12 +158,12 @@ struct ContentView: View {
                     .fill(sliderTrackBackgroundColor)
                     .frame(height: 6)
                 
-                // Active track fill
+                // Active track fill - only extends to center of thumb
                 HStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(sliderActiveTrack)
-                        .frame(height: 6)
-                        .scaleEffect(x: CGFloat(volume), anchor: .leading)
+                        .frame(width: CGFloat(volume) * 180 + 10, height: 6) // 180 available space + 10 for thumb center
+                        .clipped()
                     Spacer(minLength: 0)
                 }
                 
