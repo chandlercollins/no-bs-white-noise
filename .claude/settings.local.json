@@ -11,7 +11,8 @@
       "Bash(brew install:*)",
       "Bash(git commit:*)",
       "WebFetch(domain:dsp.stackexchange.com)",
-      "WebFetch(domain:developer.apple.com)"
+      "WebFetch(domain:developer.apple.com)",
+      "Bash(xcodebuild:*)"
     ],
     "deny": []
   }

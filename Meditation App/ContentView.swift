@@ -135,7 +135,7 @@ struct ContentView: View {
         .onAppear { 
             pulseAnimation = false 
         }
-        .onChange(of: isPlaying) { newValue in
+        .onChange(of: isPlaying) { _, newValue in
             // Smooth transition with slight delay to prevent conflicts
             withAnimation(.easeInOut(duration: 0.2)) {
                 pulseAnimation = newValue
@@ -155,7 +155,7 @@ struct ContentView: View {
             ZStack {
                 // Track background
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(sliderTrackBackground)
+                    .fill(sliderTrackBackgroundColor)
                     .frame(height: 6)
                 
                 // Active track fill
@@ -194,11 +194,8 @@ struct ContentView: View {
         Circle()
             .fill(sliderThumbColor)
             .frame(width: 20, height: 20)
-            .background(
-                Circle()
-                    .fill(.ultraThinMaterial, in: Circle())
-                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-            )
+            .background(.ultraThinMaterial, in: Circle())
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             .scaleEffect(1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: volume)
     }
@@ -319,17 +316,9 @@ struct ContentView: View {
         effectiveColorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.3)
     }
     
-    /// Slider track background with Liquid Glass aesthetic
-    private var sliderTrackBackground: some View {
-        ZStack {
-            if effectiveColorScheme == .dark {
-                Color.white.opacity(0.1)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            } else {
-                Color.black.opacity(0.06)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-        }
+    /// Slider track background color with theme awareness
+    private var sliderTrackBackgroundColor: Color {
+        effectiveColorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.06)
     }
     
     /// Active slider track with theme-aware coloring
