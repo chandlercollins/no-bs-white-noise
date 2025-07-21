@@ -45,7 +45,10 @@ struct ContentView: View {
     @State private var fadeTimer: Timer?
     @State private var brownNoiseFilter1: Float = 0.0
     @State private var fireNoiseState: Float = 0.0
-    @State private var cracklingSeed: UInt32 = 0
+    @State private var fireHissFilter: Float = 0.0
+    @State private var crackleDuration: Int = 0
+    @State private var crackleIntensity: Float = 0.0
+    @State private var emberGlow: Float = 0.0
     
     // MARK: - UI State
     @State private var isPlaying = false
@@ -409,25 +412,41 @@ struct ContentView: View {
                         data[frame] = self.brownNoiseFilter1 * 1.5
                     }
                 case .fire:
-                    // Fire crackling: procedural fire sound with pink noise base and random pops
+                    // Realistic fireplace crackling like YouTube yule log videos
                     for frame in 0..<Int(frameCount) {
-                        // Base pink noise for fire rumble
-                        let whiteNoise = Float.random(in: -0.2...0.2)
-                        let alpha: Float = 0.15
-                        self.fireNoiseState += alpha * (whiteNoise - self.fireNoiseState)
+                        // 1. Deep fire rumble (very low frequency, like burning logs)
+                        let baseNoise = Float.random(in: -0.15...0.15)
+                        let rumbleAlpha: Float = 0.02  // Very slow filter for deep rumble
+                        self.fireNoiseState += rumbleAlpha * (baseNoise - self.fireNoiseState)
                         
-                        // Random crackling pops (sparse, random intensity)
+                        // 2. Continuous ember hiss/sizzle (filtered white noise)
+                        let hissNoise = Float.random(in: -0.8...0.8)
+                        let hissAlpha: Float = 0.3  // Higher frequency for sizzling
+                        self.fireHissFilter += hissAlpha * (hissNoise - self.fireHissFilter)
+                        
+                        // 3. Wood crackling pops (realistic timing and decay)
                         var crackle: Float = 0.0
-                        if arc4random_uniform(8000) == 0 { // Very sparse crackling
-                            crackle = Float.random(in: 0.1...0.4) * (Float.random(in: 0...1) > 0.5 ? 1 : -1)
+                        if self.crackleDuration > 0 {
+                            // Continue existing crackle with decay
+                            let decay = Float(self.crackleDuration) / 2000.0
+                            crackle = self.crackleIntensity * decay * Float.random(in: 0.7...1.3)
+                            self.crackleDuration -= 1
+                        } else if arc4random_uniform(3000) == 0 { // More frequent crackling
+                            // Start new crackle
+                            self.crackleDuration = Int.random(in: 200...2000) // Variable length
+                            self.crackleIntensity = Float.random(in: 0.2...0.6)
                         }
                         
-                        // Subtle ember hiss (higher frequency component)
-                        let hiss = Float.random(in: -0.05...0.05)
+                        // 4. Ember glow (subtle bass throb)
+                        self.emberGlow += 0.001 * (Float.random(in: -0.1...0.1) - self.emberGlow)
                         
-                        // Combine components for realistic fire sound
-                        let fireOutput = (self.fireNoiseState * 0.7) + crackle + (hiss * 0.3)
-                        data[frame] = fireOutput * 1.2
+                        // Combine all elements for realistic fireplace sound
+                        let fireOutput = (self.fireNoiseState * 2.0) +           // Deep rumble
+                                        (self.fireHissFilter * 0.15) +           // Ember hiss
+                                        crackle +                                 // Wood pops
+                                        (self.emberGlow * 0.8)                   // Glow throb
+                        
+                        data[frame] = fireOutput * 0.8 // Conservative volume
                     }
                 }
             }
@@ -558,7 +577,10 @@ struct ContentView: View {
                 // Reset filter states and change noise type
                 self.brownNoiseFilter1 = 0.0
                 self.fireNoiseState = 0.0
-                self.cracklingSeed = arc4random()
+                self.fireHissFilter = 0.0
+                self.crackleDuration = 0
+                self.crackleIntensity = 0.0
+                self.emberGlow = 0.0
                 self.noiseType = type
                 
                 // Stop and restart audio engine
@@ -575,7 +597,10 @@ struct ContentView: View {
             // Not playing, just change type and reset states
             brownNoiseFilter1 = 0.0
             fireNoiseState = 0.0
-            cracklingSeed = arc4random()
+            fireHissFilter = 0.0
+            crackleDuration = 0
+            crackleIntensity = 0.0
+            emberGlow = 0.0
             noiseType = type
         }
     }
