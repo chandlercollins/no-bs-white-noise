@@ -47,8 +47,9 @@ struct ContentView: View {
                 .ignoresSafeArea(.all)
             
             VStack(spacing: 40) {
-                // Theme toggle button in top-right corner
+                // Top navigation bar with logo and theme toggle
                 HStack {
+                    logoView
                     Spacer()
                     themeToggleButton
                 }
@@ -74,6 +75,21 @@ struct ContentView: View {
     }
     
     // MARK: - UI Components
+    
+    /// App logo with theme-aware styling
+    private var logoView: some View {
+        HStack(spacing: 0) {
+            Text("White")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(textColorForCurrentTheme)
+            Text("noise")
+                .font(.title3)
+                .fontWeight(.regular)
+                .foregroundColor(textColorForCurrentTheme)
+        }
+        .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
+    }
     
     /// Play/Stop button with pulse animation
     private var playStopButton: some View {
@@ -135,6 +151,7 @@ struct ContentView: View {
         }
         .opacity(themeButtonOpacity)
         .animation(.easeInOut(duration: 0.3), value: themeButtonOpacity)
+        .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
         .accessibilityLabel("Theme: \(themeMode.displayName)")
         .accessibilityHint("Double tap to switch between light and dark themes")
         .onTapGesture {
