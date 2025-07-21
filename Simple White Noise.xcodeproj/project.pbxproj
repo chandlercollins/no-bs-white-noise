@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F22E2E5B0300481E3C /* fire.mp3 */; };
+		BF11F5F52E2E6D0F00481E3C /* rain.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F42E2E6D0F00481E3C /* rain.mp3 */; };
+		BF11F5F92E2E713C00481E3C /* birdsounds.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,6 +31,9 @@
 
 /* Begin PBXFileReference section */
 		BF11F5F22E2E5B0300481E3C /* fire.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = fire.mp3; sourceTree = "<group>"; };
+		BF11F5F42E2E6D0F00481E3C /* rain.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = rain.mp3; sourceTree = "<group>"; };
+		BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = birdsounds.mp3; sourceTree = "<group>"; };
+		BF11F5FA2E2E734700481E3C /* Simple-White-Noise-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Simple-White-Noise-Info.plist"; sourceTree = "<group>"; };
 		CB71C3042D0B5FCC000FB8BF /* Simple White Noise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Simple White Noise.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C3142D0B5FCE000FB8BF /* Simple White NoiseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C31E2D0B5FCE000FB8BF /* Simple White NoiseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -80,6 +85,9 @@
 		CB71C2FB2D0B5FCC000FB8BF = {
 			isa = PBXGroup;
 			children = (
+				BF11F5FA2E2E734700481E3C /* Simple-White-Noise-Info.plist */,
+				BF11F5F42E2E6D0F00481E3C /* rain.mp3 */,
+				BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */,
 				BF11F5F22E2E5B0300481E3C /* fire.mp3 */,
 				CB71C3062D0B5FCC000FB8BF /* Meditation App */,
 				CB71C3172D0B5FCE000FB8BF /* Meditation AppTests */,
@@ -218,7 +226,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF11F5F52E2E6D0F00481E3C /* rain.mp3 in Resources */,
 				BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */,
+				BF11F5F92E2E713C00481E3C /* birdsounds.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -406,6 +416,7 @@
 				DEVELOPMENT_TEAM = J5P6VU4B3T;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Simple-White-Noise-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -435,6 +446,7 @@
 				DEVELOPMENT_TEAM = J5P6VU4B3T;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Simple-White-Noise-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

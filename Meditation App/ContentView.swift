@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import MediaPlayer
 
 /// Theme mode options for the application
 enum ThemeMode: String, CaseIterable {
@@ -48,6 +49,8 @@ struct ContentView: View {
     @State private var whiteNoiseNode: AVAudioSourceNode?
     @State private var fadeTimer: Timer?
     @State private var fireAudioPlayer: AVAudioPlayer?
+    @State private var rainAudioPlayer: AVAudioPlayer?
+    @State private var birdsAudioPlayer: AVAudioPlayer?
     @State private var brownNoiseFilter1: Float = 0.0
     @State private var fireRumble: Float = 0.0
     @State private var fireHiss: Float = 0.0
@@ -62,6 +65,12 @@ struct ContentView: View {
     @State private var birdCallTimer: Int = 0
     @State private var birdCallIntensity: Float = 0.0
     @State private var birdCallFilter: Float = 0.0
+    @State private var secondBirdTimer: Int = 0
+    @State private var secondBirdIntensity: Float = 0.0
+    @State private var thirdBirdTimer: Int = 0
+    @State private var thirdBirdIntensity: Float = 0.0
+    @State private var birdSpeciesSwitch: Int = 0
+    @State private var insectChirpTimer: Int = 0
     @State private var frameCounter: Int = 0
     @State private var rainIntensity: Float = 0.7
     @State private var windGustPhase: Float = 0.0
@@ -72,7 +81,7 @@ struct ContentView: View {
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
-    @State private var selectedSoundType: SoundType = .white
+    @State private var selectedSoundType: SoundType = .white // Default sound - button will show as active
     @State private var isMenuExpanded = false
     @State private var isSoundTransitioning = false
     
@@ -120,10 +129,24 @@ struct ContentView: View {
             
             // Optimize for battery life - disable screen dimming when playing
             UIApplication.shared.isIdleTimerDisabled = false
+            
+            // Set up remote control commands for Control Center
+            setupRemoteCommandCenter()
         }
         .onChange(of: isPlaying) { _, newValue in
             // Prevent screen dimming during playback for overnight use
             UIApplication.shared.isIdleTimerDisabled = newValue
+            
+            // Update Control Center info
+            updateNowPlayingInfo()
+        }
+        .onDisappear {
+            // Clean up timers and audio when view disappears
+            fadeTimer?.invalidate()
+            fadeTimer = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
+            handleAudioInterruption(notification)
         }
     }
     
@@ -131,15 +154,25 @@ struct ContentView: View {
     
     /// App logo with theme-aware styling
     private var logoView: some View {
-        HStack(spacing: 0) {
-            Text("White")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(textColorForCurrentTheme)
-            Text("noise")
-                .font(.title2)
-                .fontWeight(.regular)
-                .foregroundColor(textColorForCurrentTheme)
+        VStack(alignment: .leading, spacing: -2) {
+            // Handwritten correction
+            Text("No-BS")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(textColorForCurrentTheme.opacity(0.8))
+                .italic()
+            
+            // Main logo text
+            HStack(spacing: 0) {
+                Text("White")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(textColorForCurrentTheme)
+                Text(" Noise")
+                    .font(.title2)
+                    .fontWeight(.regular)
+                    .foregroundColor(textColorForCurrentTheme)
+            }
         }
         .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
     }
@@ -151,8 +184,13 @@ struct ContentView: View {
                 Circle()
                     .fill(isPlaying ? playButtonStopColor : playButtonPlayColor)
                     .frame(width: 150, height: 150)
-                    .scaleEffect(pulseAnimation ? 1.1 : 1.0)
-                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulseAnimation)
+                    .scaleEffect(pulseAnimation ? (isPlaying ? 1.15 : 1.05) : 1.0)
+                    .animation(
+                        pulseAnimation ? 
+                        .easeInOut(duration: isPlaying ? 1.0 : 2.0).repeatForever(autoreverses: true) : 
+                        .easeInOut(duration: 0.3), 
+                        value: pulseAnimation
+                    )
                 
                 Image(systemName: isPlaying ? "stop.fill" : "play.fill")
                     .font(.system(size: 50))
@@ -400,18 +438,31 @@ struct ContentView: View {
     
     /// Starts white noise generation with audio processing chain
     private func playWhiteNoise() {
-        // Configure audio session for media playback (works in silent mode)
+        // Configure audio session for exclusive background playback (works in silent mode and background)
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try audioSession.setCategory(.playback, mode: .default, options: [])
             try audioSession.setActive(true)
         } catch {
             print("Audio session configuration error: \(error.localizedDescription)")
         }
         
-        // Handle fire sound with audio file
+        // Ensure selectedSoundType reflects what's actually being played
+        // This ensures the menu button shows as active even if menu was never opened
+        
+        // Handle MP3 audio files
         if selectedSoundType == .fire {
             playFireAudio()
+            return
+        }
+        
+        if selectedSoundType == .rain {
+            playRainAudio()
+            return
+        }
+        
+        if selectedSoundType == .birds {
+            playBirdsAudio()
             return
         }
         
@@ -459,6 +510,14 @@ struct ContentView: View {
             fireAudioPlayer = try AVAudioPlayer(contentsOf: url)
             fireAudioPlayer?.numberOfLoops = -1 // Infinite loop
             fireAudioPlayer?.volume = 0.8
+            
+            // Start at random position in the MP3 for variety
+            let duration = fireAudioPlayer?.duration ?? 0
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+                fireAudioPlayer?.currentTime = randomStart
+            }
+            
             fireAudioPlayer?.play()
             
             // Set playing state immediately for smooth UI feedback
@@ -469,6 +528,84 @@ struct ContentView: View {
             isTransitioning = false
         } catch {
             print("Fire audio player error: \(error.localizedDescription)")
+            isPlaying = false
+            isTransitioning = false
+            isSoundTransitioning = false
+        }
+    }
+    
+    /// Plays rain audio using AVAudioPlayer with mp3 file
+    private func playRainAudio() {
+        guard let path = Bundle.main.path(forResource: "rain", ofType: "mp3") else {
+            print("Could not find rain.mp3 in bundle")
+            isPlaying = false
+            isTransitioning = false
+            return
+        }
+        
+        let url = URL(fileURLWithPath: path)
+        
+        do {
+            rainAudioPlayer = try AVAudioPlayer(contentsOf: url)
+            rainAudioPlayer?.numberOfLoops = -1 // Infinite loop
+            rainAudioPlayer?.volume = 0.4
+            
+            // Start at random position in the MP3 for variety
+            let duration = rainAudioPlayer?.duration ?? 0
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+                rainAudioPlayer?.currentTime = randomStart
+            }
+            
+            rainAudioPlayer?.play()
+            
+            // Set playing state immediately for smooth UI feedback
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPlaying = true
+            }
+            
+            isTransitioning = false
+        } catch {
+            print("Rain audio player error: \(error.localizedDescription)")
+            isPlaying = false
+            isTransitioning = false
+            isSoundTransitioning = false
+        }
+    }
+    
+    /// Plays birds audio using AVAudioPlayer with mp3 file
+    private func playBirdsAudio() {
+        guard let path = Bundle.main.path(forResource: "birdsounds", ofType: "mp3") else {
+            print("Could not find birdsounds.mp3 in bundle")
+            isPlaying = false
+            isTransitioning = false
+            return
+        }
+        
+        let url = URL(fileURLWithPath: path)
+        
+        do {
+            birdsAudioPlayer = try AVAudioPlayer(contentsOf: url)
+            birdsAudioPlayer?.numberOfLoops = -1 // Infinite loop
+            birdsAudioPlayer?.volume = 0.3 // Lower volume to match other sounds
+            
+            // Start at random position in the MP3 for variety
+            let duration = birdsAudioPlayer?.duration ?? 0
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+                birdsAudioPlayer?.currentTime = randomStart
+            }
+            
+            birdsAudioPlayer?.play()
+            
+            // Set playing state immediately for smooth UI feedback
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPlaying = true
+            }
+            
+            isTransitioning = false
+        } catch {
+            print("Birds audio player error: \(error.localizedDescription)")
             isPlaying = false
             isTransitioning = false
             isSoundTransitioning = false
@@ -496,109 +633,18 @@ struct ContentView: View {
                     case .white:
                         output = Float.random(in: -0.5...0.5)
                     case .brown:
-                        let whiteNoise = Float.random(in: -0.3...0.3)
+                        let whiteNoise = Float.random(in: -0.5...0.5)
                         self.brownNoiseFilter1 += 0.1 * (whiteNoise - self.brownNoiseFilter1)
-                        output = self.brownNoiseFilter1 * 1.5
+                        output = self.brownNoiseFilter1 * 1.8
                     case .fire:
                         // Fire sound is handled by AVAudioPlayer - this should not be called
                         output = 0.0
                     case .rain:
-                        // Improved realistic rainfall with multiple rain intensities
-                        
-                        // Base rain hiss - steady rainfall on surfaces
-                        let baseRainNoise = Float.random(in: -0.5...0.5)
-                        self.rainBaseNoise += 0.08 * (baseRainNoise - self.rainBaseNoise)
-                        
-                        // Varying rain intensity with natural fluctuation
-                        if self.frameCounter % 200 == 0 {
-                            let intensityChange = Float.random(in: -0.1...0.1)
-                            self.rainIntensity = max(0.3, min(1.0, self.rainIntensity + intensityChange))
-                        }
-                        
-                        // Individual heavy droplets - size varies
-                        var dropletNoise: Float = 0.0
-                        if arc4random_uniform(25) == 0 { // More frequent drops
-                            let dropSize = Float.random(in: 0.2...0.8)
-                            dropletNoise = Float.random(in: -0.7...0.7) * dropSize
-                        }
-                        
-                        // Droplet splash/reverb with realistic decay
-                        self.rainSplashFilter += 0.3 * (dropletNoise - self.rainSplashFilter)
-                        
-                        // Distant thunder rumble - occasional
-                        var thunderRumble: Float = 0.0
-                        if self.frameCounter % 300 == 0 {
-                            let distantNoise = Float.random(in: -0.08...0.08)
-                            self.rainDropletState += 0.01 * (distantNoise - self.rainDropletState)
-                        }
-                        if arc4random_uniform(8000) == 0 { // Very rare distant thunder
-                            thunderRumble = Float.random(in: -0.15...0.15)
-                        }
-                        
-                        // Rain on leaves/surfaces - higher frequency patter
-                        var leafRain: Float = 0.0
-                        if arc4random_uniform(15) == 0 {
-                            leafRain = Float.random(in: -0.3...0.3) * 0.4
-                        }
-                        
-                        output = (self.rainBaseNoise * self.rainIntensity * 0.9) + // Base rain
-                                (dropletNoise * 0.4) + // Individual drops
-                                (self.rainSplashFilter * 0.3) + // Splash reverb
-                                (self.rainDropletState * 0.6) + // Distant rumble
-                                (thunderRumble * 0.5) + // Rare thunder
-                                leafRain // Surface patter
+                        // Rain sound is handled by AVAudioPlayer - this should not be called
+                        output = 0.0
                     case .birds:
-                        // Improved forest birds with variety and realism
-                        
-                        // Primary bird call - melodic with natural variation
-                        var primaryCall: Float = 0.0
-                        if self.birdCallTimer > 0 {
-                            let callProgress = Float(self.birdCallTimer) * 0.002 // Slower progression
-                            let melody1 = sin(callProgress * 20.0) * 0.4 // Primary melody
-                            let melody2 = sin(callProgress * 35.0) * 0.2 // Harmonic
-                            let warble = sin(callProgress * 8.0) * 0.1 // Natural warble
-                            primaryCall = self.birdCallIntensity * (melody1 + melody2 + warble)
-                            self.birdCallTimer -= 1
-                        } else if self.frameCounter % 800 == 0 && arc4random_uniform(12) == 0 {
-                            self.birdCallTimer = Int.random(in: 300...1200) // Longer, more varied calls
-                            self.birdCallIntensity = Float.random(in: 0.15...0.4)
-                        }
-                        
-                        // Multiple bird species - different call patterns
-                        var distantCall: Float = 0.0
-                        if arc4random_uniform(1200) == 0 { // Less frequent distant birds
-                            let pitch = Float.random(in: 0.3...0.8)
-                            distantCall = pitch * 0.2
-                        }
-                        
-                        // Quick chirps and tweets
-                        var quickChirp: Float = 0.0
-                        if arc4random_uniform(150) == 0 {
-                            quickChirp = Float.random(in: -0.3...0.3) * Float.random(in: 0.2...0.5)
-                        }
-                        
-                        // Wing flutter and movement sounds
-                        var wingSound: Float = 0.0
-                        if arc4random_uniform(2000) == 0 {
-                            wingSound = Float.random(in: -0.15...0.15) * 0.3
-                        }
-                        
-                        // Subtle background forest ambience
-                        var forestAmbient: Float = 0.0
-                        if self.frameCounter % 100 == 0 {
-                            let ambientNoise = Float.random(in: -0.05...0.05)
-                            self.windGustPhase += 0.02 * (ambientNoise - self.windGustPhase)
-                        }
-                        forestAmbient = self.windGustPhase
-                        
-                        // Apply natural filtering to main call
-                        self.birdCallFilter += 0.25 * (primaryCall - self.birdCallFilter)
-                        
-                        output = self.birdCallFilter + // Primary filtered call
-                                distantCall + // Distant birds
-                                quickChirp + // Quick chirps
-                                wingSound + // Wing movements
-                                (forestAmbient * 0.8) // Forest ambience
+                        // Birds sound is handled by AVAudioPlayer - this should not be called
+                        output = 0.0
                     }
                     
                     // Efficient clamping and final output
@@ -633,18 +679,31 @@ struct ContentView: View {
             isPlaying = false
         }
         
-        // Stop fire audio player if it's playing
+        // Stop MP3 audio players if they're playing
         if let firePlayer = fireAudioPlayer {
             firePlayer.stop()
             fireAudioPlayer = nil
             isTransitioning = false
             
-            // Deactivate audio session
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            } catch {
-                print("Audio session deactivation error: \(error.localizedDescription)")
-            }
+            // Don't deactivate audio session - let system manage it
+            return
+        }
+        
+        if let rainPlayer = rainAudioPlayer {
+            rainPlayer.stop()
+            rainAudioPlayer = nil
+            isTransitioning = false
+            
+            // Don't deactivate audio session - let system manage it
+            return
+        }
+        
+        if let birdsPlayer = birdsAudioPlayer {
+            birdsPlayer.stop()
+            birdsAudioPlayer = nil
+            isTransitioning = false
+            
+            // Don't deactivate audio session - let system manage it
             return
         }
         
@@ -696,7 +755,7 @@ struct ContentView: View {
             return
         }
         
-        let fadeSteps = 50
+        let fadeSteps = 20
         let stepDuration = duration / Double(fadeSteps)
         let volumeDelta = (endVolume - actualStartVolume) / Float(fadeSteps)
         
@@ -754,6 +813,9 @@ struct ContentView: View {
         isSoundTransitioning = true
         selectedSoundType = type
         
+        // Update Now Playing info with new sound type
+        updateNowPlayingInfo()
+        
         // If audio is playing, restart with new sound
         if isPlaying {
             restartAudioWithCurrentSettings()
@@ -765,22 +827,24 @@ struct ContentView: View {
     
     /// Restarts audio with current sound settings
     private func restartAudioWithCurrentSettings() {
-        // Check if we're currently using fire audio player
-        let wasUsingFireAudio = (fireAudioPlayer != nil)
-        let willUseFireAudio = (selectedSoundType == .fire)
+        // Check if we're currently using MP3 audio players
+        let wasUsingMp3Audio = (fireAudioPlayer != nil || rainAudioPlayer != nil || birdsAudioPlayer != nil)
+        let willUseMp3Audio = (selectedSoundType == .fire || selectedSoundType == .rain || selectedSoundType == .birds)
         
         // For same audio system (generated to generated), just reset state
-        if !wasUsingFireAudio && !willUseFireAudio {
+        if !wasUsingMp3Audio && !willUseMp3Audio {
             // Reset all filter states immediately for clean transition
             brownNoiseFilter1 = 0.0
-            rainDropletState = 0.0
-            rainSplashFilter = 0.0
-            rainBaseNoise = 0.0
             birdCallTimer = 0
             birdCallIntensity = 0.0
             birdCallFilter = 0.0
+            secondBirdTimer = 0
+            secondBirdIntensity = 0.0
+            thirdBirdTimer = 0
+            thirdBirdIntensity = 0.0
+            birdSpeciesSwitch = 0
+            insectChirpTimer = 0
             frameCounter = 0
-            rainIntensity = 0.7
             windGustPhase = 0.0
             
             // Clear transition flag immediately for generated sounds
@@ -788,10 +852,10 @@ struct ContentView: View {
             return
         }
         
-        // For switching between audio systems (generated ↔ fire MP3)
+        // For switching between audio systems (generated ↔ MP3)
         stopWhiteNoise()
         
-        // Minimal delay for fire sound transitions
+        // Minimal delay for MP3 sound transitions
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
             self.playWhiteNoise()
             // Clear transition flag after restart
@@ -811,6 +875,76 @@ struct ContentView: View {
     private func triggerLightHapticFeedback() {
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
+    }
+    
+    // MARK: - Remote Control / Now Playing
+    
+    /// Sets up Control Center and lock screen remote controls
+    private func setupRemoteCommandCenter() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        
+        // Enable play command
+        commandCenter.playCommand.isEnabled = true
+        commandCenter.playCommand.addTarget { _ in
+            if !self.isPlaying {
+                self.togglePlayback()
+            }
+            return .success
+        }
+        
+        // Enable pause command  
+        commandCenter.pauseCommand.isEnabled = true
+        commandCenter.pauseCommand.addTarget { _ in
+            if self.isPlaying {
+                self.togglePlayback()
+            }
+            return .success
+        }
+        
+        // Enable toggle play/pause command
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { _ in
+            self.togglePlayback()
+            return .success
+        }
+    }
+    
+    /// Updates Now Playing info for Control Center and lock screen
+    private func updateNowPlayingInfo() {
+        var nowPlayingInfo = [String: Any]()
+        nowPlayingInfo[MPMediaItemPropertyTitle] = "No-BS \(selectedSoundType.displayName) Noise"
+        nowPlayingInfo[MPMediaItemPropertyArtist] = "White Noise App"
+        nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    }
+    
+    // MARK: - Audio Interruption Handling
+    
+    /// Handles audio interruptions from phone calls, other apps, etc.
+    private func handleAudioInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+        
+        switch type {
+        case .began:
+            // Audio was interrupted (phone call, other app started playing)
+            if isPlaying {
+                // Update UI to reflect that audio is paused
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isPlaying = false
+                }
+            }
+        case .ended:
+            // Interruption ended - don't automatically resume, let user control
+            break
+        @unknown default:
+            break
+        }
     }
 }
 
