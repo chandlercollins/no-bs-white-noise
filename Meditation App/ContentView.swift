@@ -303,7 +303,7 @@ struct ContentView: View {
                 .padding(.bottom, 20)
                 
                 // Sound selector
-                HStack(spacing: 30) {
+                HStack(spacing: 15) {
                     // Base noise types (left side - OR logic)
                     baseNoiseButton(.white)
                     baseNoiseButton(.brown)
@@ -312,7 +312,7 @@ struct ContentView: View {
                     Rectangle()
                         .fill(menuHandleColor)
                         .frame(width: 1, height: 30)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 8)
                     
                     // Ambient sounds (right side - ADD logic)
                     ambientSoundButton(.fire)
@@ -321,7 +321,7 @@ struct ContentView: View {
                     
                     Spacer()
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
             .frame(maxWidth: .infinity)
@@ -343,7 +343,7 @@ struct ContentView: View {
             ZStack {
                 Circle()
                     .fill(baseNoiseType == type ? baseNoiseBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 44, height: 44)
                 
                 Text(type == .white ? "W" : "B")
                     .font(.title2)
@@ -361,7 +361,7 @@ struct ContentView: View {
             ZStack {
                 Circle()
                     .fill(activeAmbientSounds.contains(sound) ? ambientSoundBackgroundColor(for: sound) : buttonBackgroundColorForCurrentTheme)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 44, height: 44)
                 
                 Text(iconForAmbientSound(sound))
                     .font(.title2)
