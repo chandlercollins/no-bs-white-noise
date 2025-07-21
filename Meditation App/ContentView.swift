@@ -123,18 +123,24 @@ struct ContentView: View {
                     .fill(isPlaying ? playButtonStopColor : playButtonPlayColor)
                     .frame(width: 150, height: 150)
                     .scaleEffect(pulseAnimation ? 1.1 : 1.0)
-                    .animation(
-                        pulseAnimation ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true) : .default,
-                        value: pulseAnimation
-                    )
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulseAnimation)
                 
                 Image(systemName: isPlaying ? "stop.fill" : "play.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.white)
+                    .animation(.easeInOut(duration: 0.2), value: isPlaying)
             }
         }
-        .onAppear { pulseAnimation = false }
-        .onChange(of: isPlaying) { pulseAnimation = $0 }
+        .animation(.easeInOut(duration: 0.3), value: isPlaying)
+        .onAppear { 
+            pulseAnimation = false 
+        }
+        .onChange(of: isPlaying) { newValue in
+            // Smooth transition with slight delay to prevent conflicts
+            withAnimation(.easeInOut(duration: 0.2)) {
+                pulseAnimation = newValue
+            }
+        }
     }
     
     /// Volume control slider
@@ -375,12 +381,18 @@ struct ContentView: View {
             try engine.start()
             audioEngine = engine
             whiteNoiseNode = noiseNode
+            
+            // Set playing state immediately for smooth UI feedback
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPlaying = true
+            }
+            
             fadeIn(engine.mainMixerNode) {
                 self.isTransitioning = false
             }
-            isPlaying = true
         } catch {
             print("Audio engine error: \(error.localizedDescription)")
+            isPlaying = false
             isTransitioning = false
         }
     }
@@ -439,11 +451,15 @@ struct ContentView: View {
     private func stopWhiteNoise() {
         guard let engine = audioEngine else { return }
         
+        // Set stopped state immediately for smooth UI feedback
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying = false
+        }
+        
         fadeOut(engine.mainMixerNode) {
             engine.stop()
             audioEngine = nil
             whiteNoiseNode = nil
-            isPlaying = false
             isTransitioning = false
         }
     }
