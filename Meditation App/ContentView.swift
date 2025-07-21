@@ -282,7 +282,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             Spacer()
             
-            // Unified sliding overlay with caret at top
+            // Unified sliding overlay extending to bottom of screen
             VStack(spacing: 0) {
                 // Up caret at top of overlay
                 HStack {
@@ -322,9 +322,11 @@ struct ContentView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                
+                // Fill remaining space to bottom of screen
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 liquidGlassBackground
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
