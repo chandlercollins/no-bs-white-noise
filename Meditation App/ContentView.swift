@@ -22,18 +22,27 @@ enum ThemeMode: String, CaseIterable {
     }
 }
 
-/// Noise type options for audio generation
-enum NoiseType: String, CaseIterable {
+/// Base noise type (required - white or brown)
+enum BaseNoiseType: String, CaseIterable {
     case white = "white"
     case brown = "brown"
+    
+    var displayName: String {
+        switch self {
+        case .white: return "White"
+        case .brown: return "Brown"
+        }
+    }
+}
+
+/// Ambient sound mix-ins (optional add-ons)
+enum AmbientSound: String, CaseIterable {
     case fire = "fire"
     case ocean = "ocean"
     case wind = "wind"
     
     var displayName: String {
         switch self {
-        case .white: return "White"
-        case .brown: return "Brown"
         case .fire: return "Fire"
         case .ocean: return "Ocean"
         case .wind: return "Wind"
@@ -60,7 +69,8 @@ struct ContentView: View {
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
-    @State private var noiseType: NoiseType = .white
+    @State private var baseNoiseType: BaseNoiseType = .white
+    @State private var activeAmbientSounds: Set<AmbientSound> = []
     @State private var isMenuExpanded = false
     
     // MARK: - Environment
@@ -292,11 +302,11 @@ struct ContentView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 20)
                 
-                // Noise type selector
+                // Sound selector
                 HStack(spacing: 30) {
-                    // Noise types (left side)
-                    noiseTypeButton(.white)
-                    noiseTypeButton(.brown)
+                    // Base noise types (left side - OR logic)
+                    baseNoiseButton(.white)
+                    baseNoiseButton(.brown)
                     
                     // Vertical separator line
                     Rectangle()
@@ -304,10 +314,10 @@ struct ContentView: View {
                         .frame(width: 1, height: 30)
                         .padding(.horizontal, 10)
                     
-                    // Ambient sounds (right side)
-                    noiseTypeButton(.fire)
-                    noiseTypeButton(.ocean)
-                    noiseTypeButton(.wind)
+                    // Ambient sounds (right side - ADD logic)
+                    ambientSoundButton(.fire)
+                    ambientSoundButton(.ocean)
+                    ambientSoundButton(.wind)
                     
                     Spacer()
                 }
@@ -327,40 +337,62 @@ struct ContentView: View {
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
     }
     
-    /// Noise type toggle button
-    private func noiseTypeButton(_ type: NoiseType) -> some View {
-        Button(action: { toggleNoiseType(to: type) }) {
+    /// Base noise type button (OR logic - only one can be selected)
+    private func baseNoiseButton(_ type: BaseNoiseType) -> some View {
+        Button(action: { selectBaseNoise(type) }) {
             ZStack {
                 Circle()
-                    .fill(noiseType == type ? noiseTypeBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
+                    .fill(baseNoiseType == type ? baseNoiseBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
                     .frame(width: 50, height: 50)
                 
-                Text(iconForNoiseType(type))
+                Text(type == .white ? "W" : "B")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(noiseType == type ? .white : textColorForCurrentTheme)
+                    .foregroundColor(baseNoiseType == type ? .white : textColorForCurrentTheme)
             }
         }
         .accessibilityLabel("\(type.displayName) noise")
-        .accessibilityHint("Switch to \(type.displayName.lowercased()) noise")
+        .accessibilityHint("Select \(type.displayName.lowercased()) as base noise")
     }
     
-    /// Icon for each noise type
-    private func iconForNoiseType(_ type: NoiseType) -> String {
-        switch type {
-        case .white: return "W"
-        case .brown: return "B"
+    /// Ambient sound button (ADD logic - multiple can be selected)
+    private func ambientSoundButton(_ sound: AmbientSound) -> some View {
+        Button(action: { toggleAmbientSound(sound) }) {
+            ZStack {
+                Circle()
+                    .fill(activeAmbientSounds.contains(sound) ? ambientSoundBackgroundColor(for: sound) : buttonBackgroundColorForCurrentTheme)
+                    .frame(width: 50, height: 50)
+                
+                Text(iconForAmbientSound(sound))
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(activeAmbientSounds.contains(sound) ? .white : textColorForCurrentTheme)
+            }
+        }
+        .accessibilityLabel("\(sound.displayName) ambient sound")
+        .accessibilityHint(activeAmbientSounds.contains(sound) ? "Remove \(sound.displayName.lowercased()) sound" : "Add \(sound.displayName.lowercased()) sound")
+    }
+    
+    /// Icon for ambient sounds
+    private func iconForAmbientSound(_ sound: AmbientSound) -> String {
+        switch sound {
         case .fire: return "🔥"
         case .ocean: return "🌊"
         case .wind: return "💨"
         }
     }
     
-    /// Background color for noise type buttons
-    private func noiseTypeBackgroundColor(for type: NoiseType) -> Color {
+    /// Background color for base noise type buttons
+    private func baseNoiseBackgroundColor(for type: BaseNoiseType) -> Color {
         switch type {
         case .white: return .gray
         case .brown: return .brown
+        }
+    }
+    
+    /// Background color for ambient sound buttons
+    private func ambientSoundBackgroundColor(for sound: AmbientSound) -> Color {
+        switch sound {
         case .fire: return .red
         case .ocean: return .blue
         case .wind: return .cyan
@@ -421,72 +453,64 @@ struct ContentView: View {
             for buffer in bufferListPointer {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
                 
-                switch self.noiseType {
-                case .white:
-                    // White noise: equal energy across all frequencies
-                    for frame in 0..<Int(frameCount) {
-                        data[frame] = Float.random(in: -0.5...0.5)
-                    }
-                case .brown:
-                    // Brown noise: gentle single-pole low-pass filter for warmer tone
-                    // Much more conservative approach to avoid speaker stress
-                    for frame in 0..<Int(frameCount) {
+                for frame in 0..<Int(frameCount) {
+                    var output: Float = 0.0
+                    
+                    // Generate base noise (required)
+                    switch self.baseNoiseType {
+                    case .white:
+                        // White noise: equal energy across all frequencies
+                        output = Float.random(in: -0.5...0.5)
+                    case .brown:
+                        // Brown noise: gentle single-pole low-pass filter for warmer tone
                         let whiteNoise = Float.random(in: -0.3...0.3)
-                        
-                        // Simple single-pole low-pass filter with very gentle rolloff
                         let alpha: Float = 0.1  // Much higher cutoff, gentler filtering
                         self.brownNoiseFilter1 += alpha * (whiteNoise - self.brownNoiseFilter1)
-                        
-                        // Output the filtered result with conservative gain
-                        data[frame] = self.brownNoiseFilter1 * 1.5
+                        output = self.brownNoiseFilter1 * 1.5
                     }
-                case .fire:
-                    // Realistic fireplace crackling like YouTube yule log videos
-                    for frame in 0..<Int(frameCount) {
-                        // 1. Deep fire rumble (very low frequency, like burning logs)
+                    
+                    // Add ambient sounds (optional mix-ins)
+                    if self.activeAmbientSounds.contains(.fire) {
+                        // Realistic fireplace crackling
                         let baseNoise = Float.random(in: -0.15...0.15)
-                        let rumbleAlpha: Float = 0.02  // Very slow filter for deep rumble
+                        let rumbleAlpha: Float = 0.02
                         self.fireNoiseState += rumbleAlpha * (baseNoise - self.fireNoiseState)
                         
-                        // 2. Continuous ember hiss/sizzle (filtered white noise)
                         let hissNoise = Float.random(in: -0.8...0.8)
-                        let hissAlpha: Float = 0.3  // Higher frequency for sizzling
+                        let hissAlpha: Float = 0.3
                         self.fireHissFilter += hissAlpha * (hissNoise - self.fireHissFilter)
                         
-                        // 3. Wood crackling pops (realistic timing and decay)
                         var crackle: Float = 0.0
                         if self.crackleDuration > 0 {
-                            // Continue existing crackle with decay
                             let decay = Float(self.crackleDuration) / 2000.0
                             crackle = self.crackleIntensity * decay * Float.random(in: 0.7...1.3)
                             self.crackleDuration -= 1
-                        } else if arc4random_uniform(3000) == 0 { // More frequent crackling
-                            // Start new crackle
-                            self.crackleDuration = Int.random(in: 200...2000) // Variable length
+                        } else if arc4random_uniform(3000) == 0 {
+                            self.crackleDuration = Int.random(in: 200...2000)
                             self.crackleIntensity = Float.random(in: 0.2...0.6)
                         }
                         
-                        // 4. Ember glow (subtle bass throb)
                         self.emberGlow += 0.001 * (Float.random(in: -0.1...0.1) - self.emberGlow)
                         
-                        // Combine all elements for realistic fireplace sound
-                        let fireOutput = (self.fireNoiseState * 2.0) +           // Deep rumble
-                                        (self.fireHissFilter * 0.15) +           // Ember hiss
-                                        crackle +                                 // Wood pops
-                                        (self.emberGlow * 0.8)                   // Glow throb
+                        let fireOutput = (self.fireNoiseState * 2.0) +
+                                        (self.fireHissFilter * 0.15) +
+                                        crackle +
+                                        (self.emberGlow * 0.8)
                         
-                        data[frame] = fireOutput * 0.8 // Conservative volume
+                        output += fireOutput * 0.4 // Mix at lower level
                     }
-                case .ocean:
-                    // Placeholder ocean sound (will be implemented later)
-                    for frame in 0..<Int(frameCount) {
-                        data[frame] = Float.random(in: -0.2...0.2) * 0.5
+                    
+                    if self.activeAmbientSounds.contains(.ocean) {
+                        // Placeholder ocean sound (will be implemented later)
+                        output += Float.random(in: -0.2...0.2) * 0.3
                     }
-                case .wind:
-                    // Placeholder wind sound (will be implemented later)
-                    for frame in 0..<Int(frameCount) {
-                        data[frame] = Float.random(in: -0.3...0.3) * 0.4
+                    
+                    if self.activeAmbientSounds.contains(.wind) {
+                        // Placeholder wind sound (will be implemented later)
+                        output += Float.random(in: -0.3...0.3) * 0.25
                     }
+                    
+                    data[frame] = output * 0.8 // Final level adjustment
                 }
             }
             return noErr
@@ -601,46 +625,58 @@ struct ContentView: View {
         }
     }
     
-    /// Switches to specified noise type
-    private func toggleNoiseType(to type: NoiseType) {
-        guard noiseType != type else { return }
+    /// Selects base noise type (OR logic)
+    private func selectBaseNoise(_ type: BaseNoiseType) {
+        guard baseNoiseType != type else { return }
         
         triggerLightHapticFeedback()
+        baseNoiseType = type
         
-        // If audio is playing, do smooth transition with fade
+        // If audio is playing, restart with new base
         if isPlaying {
-            guard let engine = audioEngine else { return }
-            
-            // Fade out current audio
-            fadeOut(engine.mainMixerNode, duration: 0.2) {
-                // Reset filter states and change noise type
-                self.brownNoiseFilter1 = 0.0
-                self.fireNoiseState = 0.0
-                self.fireHissFilter = 0.0
-                self.crackleDuration = 0
-                self.crackleIntensity = 0.0
-                self.emberGlow = 0.0
-                self.noiseType = type
-                
-                // Stop and restart audio engine
-                engine.stop()
-                self.audioEngine = nil
-                self.whiteNoiseNode = nil
-                
-                // Small delay then restart with new noise type
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    self.playWhiteNoise()
-                }
-            }
+            restartAudioWithCurrentSettings()
+        }
+    }
+    
+    /// Toggles ambient sound (ADD logic)
+    private func toggleAmbientSound(_ sound: AmbientSound) {
+        triggerLightHapticFeedback()
+        
+        if activeAmbientSounds.contains(sound) {
+            activeAmbientSounds.remove(sound)
         } else {
-            // Not playing, just change type and reset states
-            brownNoiseFilter1 = 0.0
-            fireNoiseState = 0.0
-            fireHissFilter = 0.0
-            crackleDuration = 0
-            crackleIntensity = 0.0
-            emberGlow = 0.0
-            noiseType = type
+            activeAmbientSounds.insert(sound)
+        }
+        
+        // If audio is playing, restart with new mix
+        if isPlaying {
+            restartAudioWithCurrentSettings()
+        }
+    }
+    
+    /// Restarts audio with current base noise and ambient sounds
+    private func restartAudioWithCurrentSettings() {
+        guard let engine = audioEngine else { return }
+        
+        // Fade out current audio
+        fadeOut(engine.mainMixerNode, duration: 0.2) {
+            // Reset all filter states
+            self.brownNoiseFilter1 = 0.0
+            self.fireNoiseState = 0.0
+            self.fireHissFilter = 0.0
+            self.crackleDuration = 0
+            self.crackleIntensity = 0.0
+            self.emberGlow = 0.0
+            
+            // Stop and restart audio engine
+            engine.stop()
+            self.audioEngine = nil
+            self.whiteNoiseNode = nil
+            
+            // Small delay then restart with current settings
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.playWhiteNoise()
+            }
         }
     }
     
