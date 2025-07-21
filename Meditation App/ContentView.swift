@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 /// Main view for the white noise application
 struct ContentView: View {
@@ -68,6 +69,10 @@ struct ContentView: View {
     /// Toggles between play and stop states with debouncing
     private func togglePlayback() {
         guard !isTransitioning else { return }
+        
+        // Provide haptic feedback for physical button feel
+        triggerHapticFeedback()
+        
         isTransitioning = true
         
         if isPlaying {
@@ -197,6 +202,14 @@ struct ContentView: View {
     /// Updates the audio engine volume to match current volume setting
     private func updateVolume() {
         audioEngine?.mainMixerNode.outputVolume = volume
+    }
+    
+    // MARK: - Haptic Feedback
+    
+    /// Triggers haptic feedback to simulate physical button press
+    private func triggerHapticFeedback() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
     }
 }
 
