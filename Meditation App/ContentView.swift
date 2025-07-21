@@ -295,13 +295,7 @@ struct ContentView: View {
                     Spacer()
                 }
                 .padding(.top, 16)
-                .padding(.bottom, 8)
-                
-                // Menu handle bar
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(menuHandleColor)
-                    .frame(width: 40, height: 4)
-                    .padding(.bottom, 20)
+                .padding(.bottom, 20)
                 
                 // Noise type selector
                 HStack(spacing: 30) {
