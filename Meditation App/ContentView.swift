@@ -6,13 +6,11 @@ import UIKit
 enum ThemeMode: String, CaseIterable {
     case light = "light"
     case dark = "dark"
-    case auto = "auto"
     
     var iconName: String {
         switch self {
         case .light: return "sun.max.fill"
         case .dark: return "moon.fill"
-        case .auto: return "a.circle.fill"
         }
     }
     
@@ -20,7 +18,6 @@ enum ThemeMode: String, CaseIterable {
         switch self {
         case .light: return "Light"
         case .dark: return "Dark"
-        case .auto: return "Auto"
         }
     }
 }
@@ -70,6 +67,10 @@ struct ContentView: View {
         }
         .padding()
         .preferredColorScheme(preferredColorScheme)
+        .onAppear {
+            // Set initial theme to match system setting
+            themeMode = systemColorScheme == .dark ? .dark : .light
+        }
     }
     
     // MARK: - UI Components
@@ -135,7 +136,7 @@ struct ContentView: View {
         .opacity(themeButtonOpacity)
         .animation(.easeInOut(duration: 0.3), value: themeButtonOpacity)
         .accessibilityLabel("Theme: \(themeMode.displayName)")
-        .accessibilityHint("Double tap to switch between light, dark, and auto themes")
+        .accessibilityHint("Double tap to switch between light and dark themes")
         .onTapGesture {
             // Briefly brighten on tap
             withAnimation(.easeInOut(duration: 0.1)) {
@@ -156,7 +157,6 @@ struct ContentView: View {
         switch themeMode {
         case .light: return .light
         case .dark: return .dark
-        case .auto: return nil // Uses system setting
         }
     }
     
@@ -165,7 +165,6 @@ struct ContentView: View {
         switch themeMode {
         case .light: return .light
         case .dark: return .dark
-        case .auto: return systemColorScheme
         }
     }
     
@@ -341,7 +340,7 @@ struct ContentView: View {
     
     // MARK: - Theme Actions
     
-    /// Cycles through theme modes: light → dark → auto → light
+    /// Toggles between light and dark theme modes
     private func cycleThemeMode() {
         triggerLightHapticFeedback()
         
@@ -349,8 +348,6 @@ struct ContentView: View {
         case .light:
             themeMode = .dark
         case .dark:
-            themeMode = .auto
-        case .auto:
             themeMode = .light
         }
     }
