@@ -290,9 +290,19 @@ struct ContentView: View {
                 
                 // Noise type selector
                 HStack(spacing: 30) {
+                    // Noise types (left side)
                     noiseTypeButton(.white)
                     noiseTypeButton(.brown)
+                    
+                    // Vertical separator line
+                    Rectangle()
+                        .fill(menuHandleColor)
+                        .frame(width: 1, height: 30)
+                        .padding(.horizontal, 10)
+                    
+                    // Ambient sounds (right side)
                     noiseTypeButton(.fire)
+                    
                     Spacer()
                 }
                 .padding(.horizontal, 24)
