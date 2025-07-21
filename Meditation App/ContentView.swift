@@ -2,6 +2,29 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+/// Theme mode options for the application
+enum ThemeMode: String, CaseIterable {
+    case light = "light"
+    case dark = "dark"
+    case auto = "auto"
+    
+    var iconName: String {
+        switch self {
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        case .auto: return "a.circle.fill"
+        }
+    }
+    
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .auto: return "Auto"
+        }
+    }
+}
+
 /// Main view for the white noise application
 struct ContentView: View {
     // MARK: - Audio Properties
@@ -14,13 +37,38 @@ struct ContentView: View {
     @State private var pulseAnimation = false
     @State private var volume: Float = 1.0
     @State private var isTransitioning = false
+    @State private var themeMode: ThemeMode = .light
+    
+    // MARK: - Environment
+    @Environment(\.colorScheme) private var systemColorScheme
 
     var body: some View {
-        VStack(spacing: 40) {
-            playStopButton
-            volumeSlider
+        ZStack {
+            // Background
+            backgroundColorForCurrentTheme
+                .ignoresSafeArea(.all)
+            
+            VStack(spacing: 40) {
+                // Theme toggle button in top-right corner
+                HStack {
+                    Spacer()
+                    themeToggleButton
+                }
+                .padding(.top)
+                
+                Spacer()
+                
+                // Main content
+                VStack(spacing: 40) {
+                    playStopButton
+                    volumeSlider
+                }
+                
+                Spacer()
+            }
         }
         .padding()
+        .preferredColorScheme(preferredColorScheme)
     }
     
     // MARK: - UI Components
@@ -30,7 +78,7 @@ struct ContentView: View {
         Button(action: togglePlayback) {
             ZStack {
                 Circle()
-                    .fill(isPlaying ? .red : .blue)
+                    .fill(isPlaying ? playButtonStopColor : playButtonPlayColor)
                     .frame(width: 150, height: 150)
                     .scaleEffect(pulseAnimation ? 1.1 : 1.0)
                     .animation(
@@ -51,6 +99,7 @@ struct ContentView: View {
     private var volumeSlider: some View {
         Slider(value: volumeBinding, in: 0.0...1.0)
             .frame(width: 200)
+            .accentColor(sliderAccentColor)
     }
     
     /// Binding for volume slider with automatic audio update
@@ -62,6 +111,78 @@ struct ContentView: View {
                 updateVolume()
             }
         )
+    }
+    
+    // MARK: - Theme Components
+    
+    /// Theme toggle button with appropriate icon
+    private var themeToggleButton: some View {
+        Button(action: cycleThemeMode) {
+            Image(systemName: themeMode.iconName)
+                .font(.title2)
+                .foregroundColor(textColorForCurrentTheme)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(buttonBackgroundColorForCurrentTheme)
+                        .overlay(
+                            Circle()
+                                .stroke(textColorForCurrentTheme.opacity(0.2), lineWidth: 1)
+                        )
+                )
+        }
+        .accessibilityLabel("Theme: \(themeMode.displayName)")
+        .accessibilityHint("Double tap to switch between light, dark, and auto themes")
+    }
+    
+    // MARK: - Theme Management
+    
+    /// Returns the appropriate ColorScheme based on current theme mode
+    private var preferredColorScheme: ColorScheme? {
+        switch themeMode {
+        case .light: return .light
+        case .dark: return .dark
+        case .auto: return nil // Uses system setting
+        }
+    }
+    
+    /// Returns the current effective color scheme
+    private var effectiveColorScheme: ColorScheme {
+        switch themeMode {
+        case .light: return .light
+        case .dark: return .dark
+        case .auto: return systemColorScheme
+        }
+    }
+    
+    /// Background color based on current theme
+    private var backgroundColorForCurrentTheme: Color {
+        effectiveColorScheme == .dark ? .black : .white
+    }
+    
+    /// Text color with WCAG-compliant contrast
+    private var textColorForCurrentTheme: Color {
+        effectiveColorScheme == .dark ? .white : .black
+    }
+    
+    /// Button background color for theme toggle
+    private var buttonBackgroundColorForCurrentTheme: Color {
+        effectiveColorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05)
+    }
+    
+    /// Play button color with WCAG-compliant contrast
+    private var playButtonPlayColor: Color {
+        effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
+    }
+    
+    /// Stop button color with WCAG-compliant contrast  
+    private var playButtonStopColor: Color {
+        effectiveColorScheme == .dark ? Color.red.opacity(0.8) : Color.red
+    }
+    
+    /// Slider accent color with theme awareness
+    private var sliderAccentColor: Color {
+        effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
     }
 
     // MARK: - Audio Control
@@ -202,6 +323,22 @@ struct ContentView: View {
     /// Updates the audio engine volume to match current volume setting
     private func updateVolume() {
         audioEngine?.mainMixerNode.outputVolume = volume
+    }
+    
+    // MARK: - Theme Actions
+    
+    /// Cycles through theme modes: light → dark → auto → light
+    private func cycleThemeMode() {
+        triggerHapticFeedback()
+        
+        switch themeMode {
+        case .light:
+            themeMode = .dark
+        case .dark:
+            themeMode = .auto
+        case .auto:
+            themeMode = .light
+        }
     }
     
     // MARK: - Haptic Feedback
