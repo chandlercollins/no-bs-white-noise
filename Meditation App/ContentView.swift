@@ -42,7 +42,6 @@ struct ContentView: View {
     @State private var whiteNoiseNode: AVAudioSourceNode?
     @State private var fadeTimer: Timer?
     @State private var brownNoiseFilter1: Float = 0.0
-    @State private var brownNoiseFilter2: Float = 0.0
     
     // MARK: - UI State
     @State private var isPlaying = false
@@ -379,24 +378,17 @@ struct ContentView: View {
                         data[frame] = Float.random(in: -0.5...0.5)
                     }
                 case .brown:
-                    // Brown noise: cascaded low-pass filters for smooth 6dB/octave rolloff
-                    // Creates warm, deep sound without harsh artifacts
+                    // Brown noise: gentle single-pole low-pass filter for warmer tone
+                    // Much more conservative approach to avoid speaker stress
                     for frame in 0..<Int(frameCount) {
-                        let whiteNoise = Float.random(in: -0.5...0.5)
+                        let whiteNoise = Float.random(in: -0.3...0.3)
                         
-                        // Two-pole low-pass filter cascade for brown noise characteristic
-                        let cutoff: Float = 0.02  // Low cutoff for deep sound
+                        // Simple single-pole low-pass filter with very gentle rolloff
+                        let alpha: Float = 0.1  // Much higher cutoff, gentler filtering
+                        self.brownNoiseFilter1 += alpha * (whiteNoise - self.brownNoiseFilter1)
                         
-                        // First low-pass filter stage
-                        self.brownNoiseFilter1 += cutoff * (whiteNoise - self.brownNoiseFilter1)
-                        
-                        // Second low-pass filter stage (creates 12dB/octave, we'll attenuate for 6dB)
-                        self.brownNoiseFilter2 += cutoff * (self.brownNoiseFilter1 - self.brownNoiseFilter2)
-                        
-                        // Mix stages to get approximately 6dB/octave rolloff
-                        let brownOutput = (self.brownNoiseFilter1 * 0.3 + self.brownNoiseFilter2 * 0.7) * 2.0
-                        
-                        data[frame] = brownOutput
+                        // Output the filtered result with conservative gain
+                        data[frame] = self.brownNoiseFilter1 * 1.5
                     }
                 }
             }
@@ -521,7 +513,6 @@ struct ContentView: View {
         
         // Reset brown noise filter state when switching
         brownNoiseFilter1 = 0.0
-        brownNoiseFilter2 = 0.0
         
         // If audio is playing, restart with new noise type
         if isPlaying {
