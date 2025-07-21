@@ -51,6 +51,9 @@ struct ContentView: View {
     @State private var fireAudioPlayer: AVAudioPlayer?
     @State private var rainAudioPlayer: AVAudioPlayer?
     @State private var birdsAudioPlayer: AVAudioPlayer?
+    @State private var preloadedFirePlayer: AVAudioPlayer?
+    @State private var preloadedRainPlayer: AVAudioPlayer?
+    @State private var preloadedBirdsPlayer: AVAudioPlayer?
     @State private var brownNoiseFilter1: Float = 0.0
     @State private var fireRumble: Float = 0.0
     @State private var fireHiss: Float = 0.0
@@ -84,9 +87,13 @@ struct ContentView: View {
     @State private var selectedSoundType: SoundType = .white // Default sound - button will show as active
     @State private var isMenuExpanded = false
     @State private var isSoundTransitioning = false
+    @State private var screenDimTimer: Timer?
+    @State private var lastUserInteraction: Date = Date()
     
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         ZStack {
@@ -94,19 +101,19 @@ struct ContentView: View {
             backgroundColorForCurrentTheme
                 .ignoresSafeArea(.all)
             
-            VStack(spacing: 40) {
+            VStack(spacing: mainVerticalSpacing) {
                 // Top navigation bar with logo and theme toggle
                 HStack {
                     logoView
                     Spacer()
                     themeToggleButton
                 }
-                .padding(.top)
+                .padding(.top, topPadding)
                 
                 Spacer()
                 
                 // Main content
-                VStack(spacing: 40) {
+                VStack(spacing: mainVerticalSpacing) {
                     playStopButton
                 }
                 
@@ -127,15 +134,18 @@ struct ContentView: View {
             // Set initial theme to match system setting
             themeMode = systemColorScheme == .dark ? .dark : .light
             
-            // Optimize for battery life - disable screen dimming when playing
-            UIApplication.shared.isIdleTimerDisabled = false
+            // Initialize screen management
+            setupScreenManagement()
+            
+            // Preload audio files to prevent hitches
+            preloadAudioFiles()
             
             // Set up remote control commands for Control Center
             setupRemoteCommandCenter()
         }
         .onChange(of: isPlaying) { _, newValue in
-            // Prevent screen dimming during playback for overnight use
-            UIApplication.shared.isIdleTimerDisabled = newValue
+            // Update screen dimming behavior based on playback state
+            updateScreenDimming(isPlaying: newValue)
             
             // Update Control Center info
             updateNowPlayingInfo()
@@ -144,46 +154,49 @@ struct ContentView: View {
             // Clean up timers and audio when view disappears
             fadeTimer?.invalidate()
             fadeTimer = nil
+            screenDimTimer?.invalidate()
+            screenDimTimer = nil
         }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
             handleAudioInterruption(notification)
+        }
+        .onTapGesture {
+            // Track user interaction for screen dimming
+            recordUserInteraction()
         }
     }
     
     // MARK: - UI Components
     
-    /// App logo with theme-aware styling
+    /// App logo with theme-aware styling and responsive sizing
     private var logoView: some View {
-        VStack(alignment: .leading, spacing: -2) {
+        VStack(alignment: .leading, spacing: logoSpacing) {
             // Handwritten correction
             Text("No-BS")
-                .font(.caption)
-                .fontWeight(.medium)
+                .font(.system(size: logoSubtitleSize, weight: .medium, design: .default))
                 .foregroundColor(textColorForCurrentTheme.opacity(0.8))
                 .italic()
             
             // Main logo text
             HStack(spacing: 0) {
                 Text("White")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.system(size: logoTitleSize, weight: .bold, design: .default))
                     .foregroundColor(textColorForCurrentTheme)
                 Text(" Noise")
-                    .font(.title2)
-                    .fontWeight(.regular)
+                    .font(.system(size: logoTitleSize, weight: .regular, design: .default))
                     .foregroundColor(textColorForCurrentTheme)
             }
         }
         .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
     }
     
-    /// Play/Stop button with pulse animation
+    /// Play/Stop button with pulse animation and responsive sizing
     private var playStopButton: some View {
         Button(action: togglePlayback) {
             ZStack {
                 Circle()
                     .fill(isPlaying ? playButtonStopColor : playButtonPlayColor)
-                    .frame(width: 150, height: 150)
+                    .frame(width: playButtonSize, height: playButtonSize)
                     .scaleEffect(pulseAnimation ? (isPlaying ? 1.15 : 1.05) : 1.0)
                     .animation(
                         pulseAnimation ? 
@@ -193,7 +206,7 @@ struct ContentView: View {
                     )
                 
                 Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                    .font(.system(size: 50))
+                    .font(.system(size: playButtonIconSize))
                     .foregroundColor(.white)
                     .animation(.easeInOut(duration: 0.2), value: isPlaying)
             }
@@ -213,19 +226,19 @@ struct ContentView: View {
     
     // MARK: - Theme Components
     
-    /// Theme toggle button with appropriate icon
+    /// Theme toggle button with appropriate icon and responsive sizing
     private var themeToggleButton: some View {
         Button(action: cycleThemeMode) {
             Image(systemName: themeMode.iconName)
-                .font(.title2)
+                .font(.system(size: themeButtonIconSize, weight: .regular))
                 .foregroundColor(textColorForCurrentTheme)
-                .frame(width: 44, height: 44)
+                .frame(width: themeButtonSize, height: themeButtonSize)
                 .background(
                     Circle()
                         .fill(buttonBackgroundColorForCurrentTheme)
                         .overlay(
                             Circle()
-                                .stroke(textColorForCurrentTheme.opacity(0.2), lineWidth: 1)
+                                .stroke(textColorForCurrentTheme.opacity(0.2), lineWidth: themeButtonStrokeWidth)
                         )
                 )
         }
@@ -290,6 +303,120 @@ struct ContentView: View {
         effectiveColorScheme == .dark ? Color.red.opacity(0.8) : Color.red
     }
     
+    // MARK: - Responsive Design Properties
+    
+    /// Determines if we're on an iPad-sized device
+    private var isIPadInterface: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
+    
+    /// Scaling factor for UI elements based on device size
+    private var scalingFactor: CGFloat {
+        isIPadInterface ? 1.6 : 1.0
+    }
+    
+    /// Logo title font size that scales with device
+    private var logoTitleSize: CGFloat {
+        let baseSize: CGFloat = 22 // .title2 equivalent
+        return baseSize * scalingFactor
+    }
+    
+    /// Logo subtitle font size that scales with device
+    private var logoSubtitleSize: CGFloat {
+        let baseSize: CGFloat = 12 // .caption equivalent
+        return baseSize * scalingFactor
+    }
+    
+    /// Spacing between logo elements that scales with device
+    private var logoSpacing: CGFloat {
+        let baseSpacing: CGFloat = -2
+        return baseSpacing * scalingFactor
+    }
+    
+    /// Theme button size that scales with device
+    private var themeButtonSize: CGFloat {
+        let baseSize: CGFloat = 44
+        return baseSize * scalingFactor
+    }
+    
+    /// Theme button icon size that scales with device
+    private var themeButtonIconSize: CGFloat {
+        let baseSize: CGFloat = 22 // .title2 equivalent
+        return baseSize * scalingFactor
+    }
+    
+    /// Theme button stroke width that scales with device
+    private var themeButtonStrokeWidth: CGFloat {
+        let baseWidth: CGFloat = 1
+        return baseWidth * scalingFactor
+    }
+    
+    /// Play button size that scales with device
+    private var playButtonSize: CGFloat {
+        let baseSize: CGFloat = 150
+        return baseSize * scalingFactor
+    }
+    
+    /// Play button icon size that scales with device
+    private var playButtonIconSize: CGFloat {
+        let baseSize: CGFloat = 50
+        return baseSize * scalingFactor
+    }
+    
+    /// Sound button size that scales with device
+    private var soundButtonSize: CGFloat {
+        let baseSize: CGFloat = 44
+        return baseSize * scalingFactor
+    }
+    
+    /// Sound button icon size that scales with device
+    private var soundButtonIconSize: CGFloat {
+        let baseSize: CGFloat = 22 // .title2 equivalent
+        return baseSize * scalingFactor
+    }
+    
+    /// Main vertical spacing that scales with device
+    private var mainVerticalSpacing: CGFloat {
+        let baseSpacing: CGFloat = 40
+        return baseSpacing * scalingFactor
+    }
+    
+    /// Top padding that scales with device
+    private var topPadding: CGFloat {
+        let basePadding: CGFloat = 16
+        return basePadding * scalingFactor
+    }
+    
+    /// Bottom menu padding that scales with device
+    private var bottomMenuPadding: CGFloat {
+        let basePadding: CGFloat = 20
+        return basePadding * scalingFactor
+    }
+    
+    /// Sound menu horizontal padding that scales with device
+    private var soundMenuHorizontalPadding: CGFloat {
+        let basePadding: CGFloat = 24
+        return basePadding * scalingFactor
+    }
+    
+    /// Menu overlay height that scales with device
+    private var menuOverlayHeight: CGFloat {
+        let baseHeight: CGFloat = 120
+        return baseHeight * scalingFactor
+    }
+    
+    /// Menu caret icon size that scales with device
+    private var menuCaretIconSize: CGFloat {
+        let baseSize: CGFloat = 22 // .title2 equivalent
+        return baseSize * scalingFactor
+    }
+    
+    /// Menu top padding that scales with device
+    private var menuTopPadding: CGFloat {
+        let basePadding: CGFloat = 16
+        return basePadding * scalingFactor
+    }
+    
     
     /// Liquid Glass background for menu overlay following Apple's design language
     private var liquidGlassBackground: some View {
@@ -311,16 +438,16 @@ struct ContentView: View {
     }
     
     
-    /// Bottom menu button with up caret
+    /// Bottom menu button with up caret and responsive sizing
     private var bottomMenuButton: some View {
         Button(action: toggleMenu) {
             Image(systemName: "chevron.up")
-                .font(.title2)
+                .font(.system(size: menuCaretIconSize))
                 .foregroundColor(textColorForCurrentTheme.opacity(0.7))
                 .rotationEffect(.degrees(isMenuExpanded ? 180 : 0))
                 .animation(.easeInOut(duration: 0.3), value: isMenuExpanded)
         }
-        .padding(.bottom, 20)
+        .padding(.bottom, bottomMenuPadding)
     }
     
     /// Overlay menu that slides up from bottom as unified element
@@ -339,14 +466,16 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: "chevron.up")
-                            .font(.title2)
+                            .font(.system(size: menuCaretIconSize))
                             .foregroundColor(menuHandleColor)
                             .rotationEffect(.degrees(180)) // Point down to indicate close
                     }
                     Spacer()
                 }
-                .padding(.top, 16)
-                .padding(.bottom, 20)
+                .padding(.top, menuTopPadding)
+                
+                // Center the sound buttons vertically in remaining space
+                Spacer()
                 
                 // Sound selector - all sounds on equal footing
                 HStack {
@@ -360,13 +489,13 @@ struct ContentView: View {
                     Spacer()
                     soundButton(.birds)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, soundMenuHorizontalPadding)
                 
-                // Fill remaining space to bottom of screen
+                // Equal space below to center the buttons
                 Spacer()
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 120)
+            .frame(height: menuOverlayHeight)
             .background(
                 liquidGlassBackground
             )
@@ -378,17 +507,16 @@ struct ContentView: View {
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
     }
     
-    /// Sound button - only one can be selected at a time
+    /// Sound button - only one can be selected at a time with responsive sizing
     private func soundButton(_ type: SoundType) -> some View {
         Button(action: { selectSound(type) }) {
             ZStack {
                 Circle()
                     .fill(selectedSoundType == type ? soundBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
-                    .frame(width: 44, height: 44)
+                    .frame(width: soundButtonSize, height: soundButtonSize)
                 
                 Text(iconForSound(type))
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.system(size: soundButtonIconSize, weight: .bold))
                     .foregroundColor(selectedSoundType == type ? .white : textColorForCurrentTheme)
             }
         }
@@ -423,6 +551,9 @@ struct ContentView: View {
     /// Toggles between play and stop states with debouncing
     private func togglePlayback() {
         guard !isTransitioning else { return }
+        
+        // Record user interaction for screen dimming
+        recordUserInteraction()
         
         // Provide haptic feedback for physical button feel
         triggerHapticFeedback()
@@ -495,121 +626,94 @@ struct ContentView: View {
         }
     }
     
-    /// Plays fire audio using AVAudioPlayer with mp3 file
+    /// Plays fire audio using preloaded AVAudioPlayer for instant playback
     private func playFireAudio() {
-        guard let path = Bundle.main.path(forResource: "fire", ofType: "mp3") else {
-            print("Could not find fire.mp3 in bundle")
+        guard let player = preloadedFirePlayer else {
+            print("Preloaded fire audio player not available")
             isPlaying = false
             isTransitioning = false
             return
         }
         
-        let url = URL(fileURLWithPath: path)
+        // Use the preloaded player as the active player
+        fireAudioPlayer = player
+        fireAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        do {
-            fireAudioPlayer = try AVAudioPlayer(contentsOf: url)
-            fireAudioPlayer?.numberOfLoops = -1 // Infinite loop
-            fireAudioPlayer?.volume = 0.8
-            
-            // Start at random position in the MP3 for variety
-            let duration = fireAudioPlayer?.duration ?? 0
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-                fireAudioPlayer?.currentTime = randomStart
-            }
-            
-            fireAudioPlayer?.play()
-            
-            // Set playing state immediately for smooth UI feedback
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying = true
-            }
-            
-            isTransitioning = false
-        } catch {
-            print("Fire audio player error: \(error.localizedDescription)")
-            isPlaying = false
-            isTransitioning = false
-            isSoundTransitioning = false
+        // Start at random position in the MP3 for variety
+        let duration = fireAudioPlayer?.duration ?? 0
+        if duration > 0 {
+            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+            fireAudioPlayer?.currentTime = randomStart
         }
+        
+        fireAudioPlayer?.play()
+        
+        // Set playing state immediately for smooth UI feedback
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying = true
+        }
+        
+        isTransitioning = false
     }
     
-    /// Plays rain audio using AVAudioPlayer with mp3 file
+    /// Plays rain audio using preloaded AVAudioPlayer for instant playback
     private func playRainAudio() {
-        guard let path = Bundle.main.path(forResource: "rain", ofType: "mp3") else {
-            print("Could not find rain.mp3 in bundle")
+        guard let player = preloadedRainPlayer else {
+            print("Preloaded rain audio player not available")
             isPlaying = false
             isTransitioning = false
             return
         }
         
-        let url = URL(fileURLWithPath: path)
+        // Use the preloaded player as the active player
+        rainAudioPlayer = player
+        rainAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        do {
-            rainAudioPlayer = try AVAudioPlayer(contentsOf: url)
-            rainAudioPlayer?.numberOfLoops = -1 // Infinite loop
-            rainAudioPlayer?.volume = 0.4
-            
-            // Start at random position in the MP3 for variety
-            let duration = rainAudioPlayer?.duration ?? 0
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-                rainAudioPlayer?.currentTime = randomStart
-            }
-            
-            rainAudioPlayer?.play()
-            
-            // Set playing state immediately for smooth UI feedback
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying = true
-            }
-            
-            isTransitioning = false
-        } catch {
-            print("Rain audio player error: \(error.localizedDescription)")
-            isPlaying = false
-            isTransitioning = false
-            isSoundTransitioning = false
+        // Start at random position in the MP3 for variety
+        let duration = rainAudioPlayer?.duration ?? 0
+        if duration > 0 {
+            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+            rainAudioPlayer?.currentTime = randomStart
         }
+        
+        rainAudioPlayer?.play()
+        
+        // Set playing state immediately for smooth UI feedback
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying = true
+        }
+        
+        isTransitioning = false
     }
     
-    /// Plays birds audio using AVAudioPlayer with mp3 file
+    /// Plays birds audio using preloaded AVAudioPlayer for instant playback
     private func playBirdsAudio() {
-        guard let path = Bundle.main.path(forResource: "birdsounds", ofType: "mp3") else {
-            print("Could not find birdsounds.mp3 in bundle")
+        guard let player = preloadedBirdsPlayer else {
+            print("Preloaded birds audio player not available")
             isPlaying = false
             isTransitioning = false
             return
         }
         
-        let url = URL(fileURLWithPath: path)
+        // Use the preloaded player as the active player
+        birdsAudioPlayer = player
+        birdsAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        do {
-            birdsAudioPlayer = try AVAudioPlayer(contentsOf: url)
-            birdsAudioPlayer?.numberOfLoops = -1 // Infinite loop
-            birdsAudioPlayer?.volume = 0.3 // Lower volume to match other sounds
-            
-            // Start at random position in the MP3 for variety
-            let duration = birdsAudioPlayer?.duration ?? 0
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-                birdsAudioPlayer?.currentTime = randomStart
-            }
-            
-            birdsAudioPlayer?.play()
-            
-            // Set playing state immediately for smooth UI feedback
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying = true
-            }
-            
-            isTransitioning = false
-        } catch {
-            print("Birds audio player error: \(error.localizedDescription)")
-            isPlaying = false
-            isTransitioning = false
-            isSoundTransitioning = false
+        // Start at random position in the MP3 for variety
+        let duration = birdsAudioPlayer?.duration ?? 0
+        if duration > 0 {
+            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
+            birdsAudioPlayer?.currentTime = randomStart
         }
+        
+        birdsAudioPlayer?.play()
+        
+        // Set playing state immediately for smooth UI feedback
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying = true
+        }
+        
+        isTransitioning = false
     }
     
     /// Creates audio source node for noise generation based on current type
@@ -782,6 +886,9 @@ struct ContentView: View {
     
     /// Toggles between light and dark theme modes
     private func cycleThemeMode() {
+        // Record user interaction for screen dimming
+        recordUserInteraction()
+        
         triggerLightHapticFeedback()
         
         switch themeMode {
@@ -796,6 +903,9 @@ struct ContentView: View {
     
     /// Toggles the bottom menu visibility
     private func toggleMenu() {
+        // Record user interaction for screen dimming
+        recordUserInteraction()
+        
         triggerLightHapticFeedback()
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
             isMenuExpanded.toggle()
@@ -806,6 +916,9 @@ struct ContentView: View {
     private func selectSound(_ type: SoundType) {
         // Prevent rapid button mashing
         guard selectedSoundType != type && !isSoundTransitioning else { return }
+        
+        // Record user interaction for screen dimming
+        recordUserInteraction()
         
         triggerLightHapticFeedback()
         
@@ -875,6 +988,94 @@ struct ContentView: View {
     private func triggerLightHapticFeedback() {
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
+    }
+    
+    // MARK: - Audio Preloading
+    
+    /// Preloads all MP3 audio files to prevent hitches when switching sounds
+    private func preloadAudioFiles() {
+        // Preload fire audio
+        if let path = Bundle.main.path(forResource: "fire", ofType: "mp3") {
+            let url = URL(fileURLWithPath: path)
+            do {
+                preloadedFirePlayer = try AVAudioPlayer(contentsOf: url)
+                preloadedFirePlayer?.prepareToPlay()
+                preloadedFirePlayer?.volume = 0.8
+            } catch {
+                print("Failed to preload fire audio: \(error.localizedDescription)")
+            }
+        }
+        
+        // Preload rain audio
+        if let path = Bundle.main.path(forResource: "rain", ofType: "mp3") {
+            let url = URL(fileURLWithPath: path)
+            do {
+                preloadedRainPlayer = try AVAudioPlayer(contentsOf: url)
+                preloadedRainPlayer?.prepareToPlay()
+                preloadedRainPlayer?.volume = 0.4
+            } catch {
+                print("Failed to preload rain audio: \(error.localizedDescription)")
+            }
+        }
+        
+        // Preload birds audio
+        if let path = Bundle.main.path(forResource: "birdsounds", ofType: "mp3") {
+            let url = URL(fileURLWithPath: path)
+            do {
+                preloadedBirdsPlayer = try AVAudioPlayer(contentsOf: url)
+                preloadedBirdsPlayer?.prepareToPlay()
+                preloadedBirdsPlayer?.volume = 0.3
+            } catch {
+                print("Failed to preload birds audio: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Screen Management
+    
+    /// Sets up intelligent screen dimming based on Apple's best practices
+    private func setupScreenManagement() {
+        // Initially allow normal screen dimming
+        UIApplication.shared.isIdleTimerDisabled = false
+        lastUserInteraction = Date()
+    }
+    
+    /// Updates screen dimming behavior when playback state changes
+    private func updateScreenDimming(isPlaying: Bool) {
+        if isPlaying {
+            // When audio starts, prevent immediate dimming but allow delayed dimming
+            resetScreenDimTimer()
+        } else {
+            // When audio stops, return to normal system dimming
+            UIApplication.shared.isIdleTimerDisabled = false
+            screenDimTimer?.invalidate()
+        }
+    }
+    
+    /// Records user interaction and resets screen dim timer
+    private func recordUserInteraction() {
+        lastUserInteraction = Date()
+        
+        // If audio is playing, reset the dimming timer
+        if isPlaying {
+            resetScreenDimTimer()
+        }
+    }
+    
+    /// Resets screen dim timer following Apple's recommendations
+    private func resetScreenDimTimer() {
+        // Cancel existing timer
+        screenDimTimer?.invalidate()
+        
+        // Prevent immediate dimming
+        UIApplication.shared.isIdleTimerDisabled = true
+        
+        // Apple's recommendation: 30 seconds of inactivity before allowing screen to dim
+        // This balances user experience with battery life
+        screenDimTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { _ in
+            // After 30 seconds of inactivity, allow system to dim screen
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
     
     // MARK: - Remote Control / Now Playing

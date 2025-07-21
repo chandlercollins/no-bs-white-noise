@@ -10,6 +10,7 @@
 		BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F22E2E5B0300481E3C /* fire.mp3 */; };
 		BF11F5F52E2E6D0F00481E3C /* rain.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F42E2E6D0F00481E3C /* rain.mp3 */; };
 		BF11F5F92E2E713C00481E3C /* birdsounds.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */; };
+		BF11F5FC2E2E93F100481E3C /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5FB2E2E93F100481E3C /* logo.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +35,7 @@
 		BF11F5F42E2E6D0F00481E3C /* rain.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = rain.mp3; sourceTree = "<group>"; };
 		BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = birdsounds.mp3; sourceTree = "<group>"; };
 		BF11F5FA2E2E734700481E3C /* Simple-White-Noise-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Simple-White-Noise-Info.plist"; sourceTree = "<group>"; };
+		BF11F5FB2E2E93F100481E3C /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		CB71C3042D0B5FCC000FB8BF /* Simple White Noise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Simple White Noise.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C3142D0B5FCE000FB8BF /* Simple White NoiseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C31E2D0B5FCE000FB8BF /* Simple White NoiseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,6 +95,7 @@
 				CB71C3172D0B5FCE000FB8BF /* Meditation AppTests */,
 				CB71C3212D0B5FCE000FB8BF /* Meditation AppUITests */,
 				CB71C3052D0B5FCC000FB8BF /* Products */,
+				BF11F5FB2E2E93F100481E3C /* logo.png */,
 			);
 			sourceTree = "<group>";
 		};
@@ -227,6 +230,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BF11F5F52E2E6D0F00481E3C /* rain.mp3 in Resources */,
+				BF11F5FC2E2E93F100481E3C /* logo.png in Resources */,
 				BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */,
 				BF11F5F92E2E713C00481E3C /* birdsounds.mp3 in Resources */,
 			);
