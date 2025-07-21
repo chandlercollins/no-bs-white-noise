@@ -14,7 +14,9 @@
       "WebFetch(domain:developer.apple.com)",
       "Bash(xcodebuild:*)",
       "Bash(swiftc:*)",
-      "WebFetch(domain:craigmod.com)"
+      "WebFetch(domain:craigmod.com)",
+      "Bash(cp:*)",
+      "Bash(git restore:*)"
     ],
     "deny": []
   }

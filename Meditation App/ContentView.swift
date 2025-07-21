@@ -1113,8 +1113,8 @@ struct ContentView: View {
     /// Updates Now Playing info for Control Center and lock screen
     private func updateNowPlayingInfo() {
         var nowPlayingInfo = [String: Any]()
-        nowPlayingInfo[MPMediaItemPropertyTitle] = "No-BS \(selectedSoundType.displayName) Noise"
-        nowPlayingInfo[MPMediaItemPropertyArtist] = "White Noise App"
+        nowPlayingInfo[MPMediaItemPropertyTitle] = "\(selectedSoundType.displayName) Noise"
+        nowPlayingInfo[MPMediaItemPropertyArtist] = "No-BS White Noise"
         nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
         nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
         

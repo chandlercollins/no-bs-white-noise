@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CB71C3032D0B5FCC000FB8BF"
-               BuildableName = "Simple White Noise.app"
-               BlueprintName = "Simple White Noise"
-               ReferencedContainer = "container:Simple White Noise.xcodeproj">
+               BuildableName = "No-BS White Noise.app"
+               BlueprintName = "No-BS White Noise"
+               ReferencedContainer = "container:No-BS White Noise.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CB71C3132D0B5FCE000FB8BF"
-               BuildableName = "Simple White NoiseTests.xctest"
-               BlueprintName = "Simple White NoiseTests"
-               ReferencedContainer = "container:Simple White Noise.xcodeproj">
+               BuildableName = "No-BS White NoiseTests.xctest"
+               BlueprintName = "No-BS White NoiseTests"
+               ReferencedContainer = "container:No-BS White Noise.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -47,9 +47,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CB71C31D2D0B5FCE000FB8BF"
-               BuildableName = "Simple White NoiseUITests.xctest"
-               BlueprintName = "Simple White NoiseUITests"
-               ReferencedContainer = "container:Simple White Noise.xcodeproj">
+               BuildableName = "No-BS White NoiseUITests.xctest"
+               BlueprintName = "No-BS White NoiseUITests"
+               ReferencedContainer = "container:No-BS White Noise.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -69,9 +69,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CB71C3032D0B5FCC000FB8BF"
-            BuildableName = "Simple White Noise.app"
-            BlueprintName = "Simple White Noise"
-            ReferencedContainer = "container:Simple White Noise.xcodeproj">
+            BuildableName = "No-BS White Noise.app"
+            BlueprintName = "No-BS White Noise"
+            ReferencedContainer = "container:No-BS White Noise.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -86,9 +86,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CB71C3032D0B5FCC000FB8BF"
-            BuildableName = "Simple White Noise.app"
-            BlueprintName = "Simple White Noise"
-            ReferencedContainer = "container:Simple White Noise.xcodeproj">
+            BuildableName = "No-BS White Noise.app"
+            BlueprintName = "No-BS White Noise"
+            ReferencedContainer = "container:No-BS White Noise.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

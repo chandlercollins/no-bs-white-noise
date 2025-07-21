@@ -1,7 +1,7 @@
 import SwiftUI
 import AVFoundation
 
-/// Entry point for the Simple White Noise application
+/// Entry point for the No-BS White Noise application
 @main
 struct WhiteNoiseApp: App {
     init() {
