@@ -26,11 +26,13 @@ enum ThemeMode: String, CaseIterable {
 enum NoiseType: String, CaseIterable {
     case white = "white"
     case brown = "brown"
+    case fire = "fire"
     
     var displayName: String {
         switch self {
         case .white: return "White"
         case .brown: return "Brown"
+        case .fire: return "Fire"
         }
     }
 }
@@ -42,6 +44,8 @@ struct ContentView: View {
     @State private var whiteNoiseNode: AVAudioSourceNode?
     @State private var fadeTimer: Timer?
     @State private var brownNoiseFilter1: Float = 0.0
+    @State private var fireNoiseState: Float = 0.0
+    @State private var cracklingSeed: UInt32 = 0
     
     // MARK: - UI State
     @State private var isPlaying = false
@@ -285,6 +289,7 @@ struct ContentView: View {
                 HStack(spacing: 30) {
                     noiseTypeButton(.white)
                     noiseTypeButton(.brown)
+                    noiseTypeButton(.fire)
                     Spacer()
                 }
                 .padding(.horizontal, 24)
@@ -311,7 +316,7 @@ struct ContentView: View {
                     .fill(noiseType == type ? noiseTypeBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
                     .frame(width: 50, height: 50)
                 
-                Text(type == .white ? "W" : "B")
+                Text(type == .white ? "W" : type == .brown ? "B" : "🔥")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(noiseType == type ? .white : textColorForCurrentTheme)
@@ -326,6 +331,7 @@ struct ContentView: View {
         switch type {
         case .white: return .gray
         case .brown: return .brown
+        case .fire: return .red
         }
     }
 
@@ -401,6 +407,27 @@ struct ContentView: View {
                         
                         // Output the filtered result with conservative gain
                         data[frame] = self.brownNoiseFilter1 * 1.5
+                    }
+                case .fire:
+                    // Fire crackling: procedural fire sound with pink noise base and random pops
+                    for frame in 0..<Int(frameCount) {
+                        // Base pink noise for fire rumble
+                        let whiteNoise = Float.random(in: -0.2...0.2)
+                        let alpha: Float = 0.15
+                        self.fireNoiseState += alpha * (whiteNoise - self.fireNoiseState)
+                        
+                        // Random crackling pops (sparse, random intensity)
+                        var crackle: Float = 0.0
+                        if arc4random_uniform(8000) == 0 { // Very sparse crackling
+                            crackle = Float.random(in: 0.1...0.4) * (Float.random(in: 0...1) > 0.5 ? 1 : -1)
+                        }
+                        
+                        // Subtle ember hiss (higher frequency component)
+                        let hiss = Float.random(in: -0.05...0.05)
+                        
+                        // Combine components for realistic fire sound
+                        let fireOutput = (self.fireNoiseState * 0.7) + crackle + (hiss * 0.3)
+                        data[frame] = fireOutput * 1.2
                     }
                 }
             }
@@ -528,8 +555,10 @@ struct ContentView: View {
             
             // Fade out current audio
             fadeOut(engine.mainMixerNode, duration: 0.2) {
-                // Reset filter state and change noise type
+                // Reset filter states and change noise type
                 self.brownNoiseFilter1 = 0.0
+                self.fireNoiseState = 0.0
+                self.cracklingSeed = arc4random()
                 self.noiseType = type
                 
                 // Stop and restart audio engine
@@ -543,8 +572,10 @@ struct ContentView: View {
                 }
             }
         } else {
-            // Not playing, just change type and reset state
+            // Not playing, just change type and reset states
             brownNoiseFilter1 = 0.0
+            fireNoiseState = 0.0
+            cracklingSeed = arc4random()
             noiseType = type
         }
     }
