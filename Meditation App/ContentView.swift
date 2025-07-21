@@ -27,12 +27,16 @@ enum NoiseType: String, CaseIterable {
     case white = "white"
     case brown = "brown"
     case fire = "fire"
+    case ocean = "ocean"
+    case wind = "wind"
     
     var displayName: String {
         switch self {
         case .white: return "White"
         case .brown: return "Brown"
         case .fire: return "Fire"
+        case .ocean: return "Ocean"
+        case .wind: return "Wind"
         }
     }
 }
@@ -302,6 +306,8 @@ struct ContentView: View {
                     
                     // Ambient sounds (right side)
                     noiseTypeButton(.fire)
+                    noiseTypeButton(.ocean)
+                    noiseTypeButton(.wind)
                     
                     Spacer()
                 }
@@ -329,7 +335,7 @@ struct ContentView: View {
                     .fill(noiseType == type ? noiseTypeBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
                     .frame(width: 50, height: 50)
                 
-                Text(type == .white ? "W" : type == .brown ? "B" : "🔥")
+                Text(iconForNoiseType(type))
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(noiseType == type ? .white : textColorForCurrentTheme)
@@ -339,12 +345,25 @@ struct ContentView: View {
         .accessibilityHint("Switch to \(type.displayName.lowercased()) noise")
     }
     
+    /// Icon for each noise type
+    private func iconForNoiseType(_ type: NoiseType) -> String {
+        switch type {
+        case .white: return "W"
+        case .brown: return "B"
+        case .fire: return "🔥"
+        case .ocean: return "🌊"
+        case .wind: return "💨"
+        }
+    }
+    
     /// Background color for noise type buttons
     private func noiseTypeBackgroundColor(for type: NoiseType) -> Color {
         switch type {
         case .white: return .gray
         case .brown: return .brown
         case .fire: return .red
+        case .ocean: return .blue
+        case .wind: return .cyan
         }
     }
 
@@ -457,6 +476,16 @@ struct ContentView: View {
                                         (self.emberGlow * 0.8)                   // Glow throb
                         
                         data[frame] = fireOutput * 0.8 // Conservative volume
+                    }
+                case .ocean:
+                    // Placeholder ocean sound (will be implemented later)
+                    for frame in 0..<Int(frameCount) {
+                        data[frame] = Float.random(in: -0.2...0.2) * 0.5
+                    }
+                case .wind:
+                    // Placeholder wind sound (will be implemented later)
+                    for frame in 0..<Int(frameCount) {
+                        data[frame] = Float.random(in: -0.3...0.3) * 0.4
                     }
                 }
             }
