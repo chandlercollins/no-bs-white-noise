@@ -80,11 +80,11 @@ struct ContentView: View {
     private var logoView: some View {
         HStack(spacing: 0) {
             Text("White")
-                .font(.title3)
+                .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(textColorForCurrentTheme)
             Text("noise")
-                .font(.title3)
+                .font(.title2)
                 .fontWeight(.regular)
                 .foregroundColor(textColorForCurrentTheme)
         }
