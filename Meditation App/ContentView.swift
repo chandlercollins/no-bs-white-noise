@@ -22,6 +22,19 @@ enum ThemeMode: String, CaseIterable {
     }
 }
 
+/// Noise type options for audio generation
+enum NoiseType: String, CaseIterable {
+    case white = "white"
+    case brown = "brown"
+    
+    var displayName: String {
+        switch self {
+        case .white: return "White"
+        case .brown: return "Brown"
+        }
+    }
+}
+
 /// Main view for the white noise application
 struct ContentView: View {
     // MARK: - Audio Properties
@@ -36,6 +49,8 @@ struct ContentView: View {
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
+    @State private var noiseType: NoiseType = .white
+    @State private var isMenuExpanded = false
     
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
@@ -64,6 +79,14 @@ struct ContentView: View {
                 }
                 
                 Spacer()
+                
+                // Bottom menu caret button
+                bottomMenuButton
+            }
+            
+            // Overlay menu
+            if isMenuExpanded {
+                menuOverlay
             }
         }
         .padding()
@@ -214,6 +237,90 @@ struct ContentView: View {
     private var sliderAccentColor: Color {
         effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
     }
+    
+    /// Bottom menu button with up caret
+    private var bottomMenuButton: some View {
+        Button(action: toggleMenu) {
+            Image(systemName: "chevron.up")
+                .font(.title2)
+                .foregroundColor(textColorForCurrentTheme.opacity(0.7))
+                .rotationEffect(.degrees(isMenuExpanded ? 180 : 0))
+                .animation(.easeInOut(duration: 0.3), value: isMenuExpanded)
+        }
+        .padding(.bottom, 20)
+    }
+    
+    /// Overlay menu that slides up from bottom
+    private var menuOverlay: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.3)
+                .ignoresSafeArea(.all)
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isMenuExpanded = false
+                    }
+                }
+            
+            VStack {
+                Spacer()
+                
+                // Menu content
+                VStack(spacing: 20) {
+                    // Menu handle
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(textColorForCurrentTheme.opacity(0.3))
+                        .frame(width: 40, height: 4)
+                        .padding(.top, 10)
+                    
+                    // Noise type selector
+                    HStack(spacing: 30) {
+                        noiseTypeButton(.white)
+                        noiseTypeButton(.brown)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
+                }
+                .frame(height: UIScreen.main.bounds.height / 3)
+                .background(
+                    backgroundColorForCurrentTheme
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+                )
+                .padding(.horizontal)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        .animation(.easeInOut(duration: 0.3), value: isMenuExpanded)
+    }
+    
+    /// Noise type toggle button
+    private func noiseTypeButton(_ type: NoiseType) -> some View {
+        Button(action: { toggleNoiseType(to: type) }) {
+            ZStack {
+                Circle()
+                    .fill(noiseType == type ? noiseTypeBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
+                    .frame(width: 50, height: 50)
+                
+                Text(type == .white ? "W" : "B")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(noiseType == type ? .white : textColorForCurrentTheme)
+            }
+        }
+        .accessibilityLabel("\(type.displayName) noise")
+        .accessibilityHint("Switch to \(type.displayName.lowercased()) noise")
+    }
+    
+    /// Background color for noise type buttons
+    private func noiseTypeBackgroundColor(for type: NoiseType) -> Color {
+        switch type {
+        case .white: return .gray
+        case .brown: return .brown
+        }
+    }
 
     // MARK: - Audio Control
     
@@ -255,7 +362,7 @@ struct ContentView: View {
         }
     }
     
-    /// Creates audio source node for white noise generation
+    /// Creates audio source node for noise generation based on current type
     private func createWhiteNoiseNode() -> AVAudioSourceNode {
         AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let bufferListPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -263,8 +370,20 @@ struct ContentView: View {
             for buffer in bufferListPointer {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
                 
-                for frame in 0..<Int(frameCount) {
-                    data[frame] = Float.random(in: -0.5...0.5)
+                switch self.noiseType {
+                case .white:
+                    // White noise: equal energy across all frequencies
+                    for frame in 0..<Int(frameCount) {
+                        data[frame] = Float.random(in: -0.5...0.5)
+                    }
+                case .brown:
+                    // Brown noise: lower frequencies emphasized, deeper sound
+                    for frame in 0..<Int(frameCount) {
+                        let whiteNoise = Float.random(in: -0.5...0.5)
+                        // Apply simple low-pass filtering for brown noise characteristic
+                        let brownNoise = whiteNoise * 0.3 + Float.random(in: -0.2...0.2)
+                        data[frame] = brownNoise
+                    }
                 }
             }
             return noErr
@@ -366,6 +485,32 @@ struct ContentView: View {
             themeMode = .dark
         case .dark:
             themeMode = .light
+        }
+    }
+    
+    // MARK: - Menu Actions
+    
+    /// Toggles the bottom menu visibility
+    private func toggleMenu() {
+        triggerLightHapticFeedback()
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isMenuExpanded.toggle()
+        }
+    }
+    
+    /// Switches to specified noise type
+    private func toggleNoiseType(to type: NoiseType) {
+        guard noiseType != type else { return }
+        
+        triggerLightHapticFeedback()
+        noiseType = type
+        
+        // If audio is playing, restart with new noise type
+        if isPlaying {
+            stopWhiteNoise()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.playWhiteNoise()
+            }
         }
     }
     
