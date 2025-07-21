@@ -12,7 +12,8 @@
       "Bash(git commit:*)",
       "WebFetch(domain:dsp.stackexchange.com)",
       "WebFetch(domain:developer.apple.com)",
-      "Bash(xcodebuild:*)"
+      "Bash(xcodebuild:*)",
+      "Bash(swiftc:*)"
     ],
     "deny": []
   }

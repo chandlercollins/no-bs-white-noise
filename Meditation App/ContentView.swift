@@ -38,14 +38,14 @@ enum BaseNoiseType: String, CaseIterable {
 /// Ambient sound mix-ins (optional add-ons)
 enum AmbientSound: String, CaseIterable {
     case fire = "fire"
-    case ocean = "ocean"
-    case wind = "wind"
+    case rain = "rain"
+    case birds = "birds"
     
     var displayName: String {
         switch self {
         case .fire: return "Fire"
-        case .ocean: return "Ocean"
-        case .wind: return "Wind"
+        case .rain: return "Rain"
+        case .birds: return "Birds"
         }
     }
 }
@@ -57,11 +57,20 @@ struct ContentView: View {
     @State private var whiteNoiseNode: AVAudioSourceNode?
     @State private var fadeTimer: Timer?
     @State private var brownNoiseFilter1: Float = 0.0
-    @State private var fireNoiseState: Float = 0.0
-    @State private var fireHissFilter: Float = 0.0
-    @State private var crackleDuration: Int = 0
-    @State private var crackleIntensity: Float = 0.0
-    @State private var emberGlow: Float = 0.0
+    @State private var fireRumble: Float = 0.0
+    @State private var fireHiss: Float = 0.0
+    @State private var firePop1Timer: Int = 0
+    @State private var firePop1Intensity: Float = 0.0
+    @State private var firePop2Timer: Int = 0
+    @State private var firePop2Intensity: Float = 0.0
+    @State private var fireCracklePhase: Float = 0.0
+    @State private var rainDropletState: Float = 0.0
+    @State private var rainSplashFilter: Float = 0.0
+    @State private var rainBaseNoise: Float = 0.0
+    @State private var birdCallTimer: Int = 0
+    @State private var birdCallIntensity: Float = 0.0
+    @State private var birdCallFilter: Float = 0.0
+    @State private var frameCounter: Int = 0
     
     // MARK: - UI State
     @State private var isPlaying = false
@@ -114,6 +123,13 @@ struct ContentView: View {
         .onAppear {
             // Set initial theme to match system setting
             themeMode = systemColorScheme == .dark ? .dark : .light
+            
+            // Optimize for battery life - disable screen dimming when playing
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        .onChange(of: isPlaying) { _, newValue in
+            // Prevent screen dimming during playback for overnight use
+            UIApplication.shared.isIdleTimerDisabled = newValue
         }
     }
     
@@ -282,7 +298,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             Spacer()
             
-            // Unified sliding overlay extending to bottom of screen
+            // Unified sliding overlay - fixed height, extends to bottom
             VStack(spacing: 0) {
                 // Up caret at top of overlay
                 HStack {
@@ -303,30 +319,33 @@ struct ContentView: View {
                 .padding(.bottom, 20)
                 
                 // Sound selector
-                HStack(spacing: 15) {
+                HStack {
                     // Base noise types (left side - OR logic)
                     baseNoiseButton(.white)
+                    Spacer()
                     baseNoiseButton(.brown)
                     
                     // Vertical separator line
+                    Spacer()
                     Rectangle()
                         .fill(menuHandleColor)
                         .frame(width: 1, height: 30)
-                        .padding(.horizontal, 8)
+                    Spacer()
                     
                     // Ambient sounds (right side - ADD logic)
                     ambientSoundButton(.fire)
-                    ambientSoundButton(.ocean)
-                    ambientSoundButton(.wind)
-                    
                     Spacer()
+                    ambientSoundButton(.rain)
+                    Spacer()
+                    ambientSoundButton(.birds)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 24)
                 
                 // Fill remaining space to bottom of screen
                 Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity)
+            .frame(height: 120)
             .background(
                 liquidGlassBackground
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -379,8 +398,8 @@ struct ContentView: View {
     private func iconForAmbientSound(_ sound: AmbientSound) -> String {
         switch sound {
         case .fire: return "🔥"
-        case .ocean: return "🌊"
-        case .wind: return "💨"
+        case .rain: return "🌧️"
+        case .birds: return "🐦"
         }
     }
     
@@ -396,8 +415,8 @@ struct ContentView: View {
     private func ambientSoundBackgroundColor(for sound: AmbientSound) -> Color {
         switch sound {
         case .fire: return .red
-        case .ocean: return .blue
-        case .wind: return .cyan
+        case .rain: return .blue
+        case .birds: return .green
         }
     }
 
@@ -455,64 +474,119 @@ struct ContentView: View {
             for buffer in bufferListPointer {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
                 
+                // Pre-calculate gain once per buffer instead of per frame
+                var finalGain: Float = 0.8
+                let ambientCount = self.activeAmbientSounds.count
+                if ambientCount > 1 {
+                    finalGain *= (1.0 / Float(ambientCount)) * 0.7
+                }
+                
+                // Cache active sounds check to avoid repeated Set.contains calls
+                let hasFireSound = self.activeAmbientSounds.contains(.fire)
+                let hasRainSound = self.activeAmbientSounds.contains(.rain)
+                let hasBirdSound = self.activeAmbientSounds.contains(.birds)
+                
                 for frame in 0..<Int(frameCount) {
                     var output: Float = 0.0
+                    self.frameCounter += 1
                     
-                    // Generate base noise (required)
+                    // Generate base noise (required) - optimized random generation
                     switch self.baseNoiseType {
                     case .white:
-                        // White noise: equal energy across all frequencies
                         output = Float.random(in: -0.5...0.5)
                     case .brown:
-                        // Brown noise: gentle single-pole low-pass filter for warmer tone
                         let whiteNoise = Float.random(in: -0.3...0.3)
-                        let alpha: Float = 0.1  // Much higher cutoff, gentler filtering
-                        self.brownNoiseFilter1 += alpha * (whiteNoise - self.brownNoiseFilter1)
+                        self.brownNoiseFilter1 += 0.1 * (whiteNoise - self.brownNoiseFilter1)
                         output = self.brownNoiseFilter1 * 1.5
                     }
                     
-                    // Add ambient sounds (optional mix-ins)
-                    if self.activeAmbientSounds.contains(.fire) {
-                        // Realistic fireplace crackling
-                        let baseNoise = Float.random(in: -0.15...0.15)
-                        let rumbleAlpha: Float = 0.02
-                        self.fireNoiseState += rumbleAlpha * (baseNoise - self.fireNoiseState)
+                    // Fire sound - reduced computation frequency
+                    if hasFireSound {
+                        let rumbleNoise = Float.random(in: -0.2...0.2)
+                        self.fireRumble += 0.008 * (rumbleNoise - self.fireRumble)
                         
-                        let hissNoise = Float.random(in: -0.8...0.8)
-                        let hissAlpha: Float = 0.3
-                        self.fireHissFilter += hissAlpha * (hissNoise - self.fireHissFilter)
+                        let hissNoise = Float.random(in: -0.6...0.6)
+                        self.fireHiss += 0.15 * (hissNoise - self.fireHiss)
                         
-                        var crackle: Float = 0.0
-                        if self.crackleDuration > 0 {
-                            let decay = Float(self.crackleDuration) / 2000.0
-                            crackle = self.crackleIntensity * decay * Float.random(in: 0.7...1.3)
-                            self.crackleDuration -= 1
-                        } else if arc4random_uniform(3000) == 0 {
-                            self.crackleDuration = Int.random(in: 200...2000)
-                            self.crackleIntensity = Float.random(in: 0.2...0.6)
+                        var pop1: Float = 0.0
+                        if self.firePop1Timer > 0 {
+                            let decay = Float(self.firePop1Timer) * 0.00833 // Pre-calculated 1/120
+                            pop1 = self.firePop1Intensity * decay * decay
+                            self.firePop1Timer -= 1
+                        } else if self.frameCounter % 800 == 0 && arc4random_uniform(8) == 0 { // Reduced frequency
+                            self.firePop1Timer = Int.random(in: 40...120)
+                            self.firePop1Intensity = Float.random(in: 0.4...0.8)
                         }
                         
-                        self.emberGlow += 0.001 * (Float.random(in: -0.1...0.1) - self.emberGlow)
+                        var pop2: Float = 0.0
+                        if self.firePop2Timer > 0 {
+                            let decay = Float(self.firePop2Timer) * 0.01 // Pre-calculated 1/100
+                            pop2 = self.firePop2Intensity * decay * decay
+                            self.firePop2Timer -= 1
+                        } else if self.frameCounter % 700 == 0 && arc4random_uniform(12) == 0 {
+                            self.firePop2Timer = Int.random(in: 30...100)
+                            self.firePop2Intensity = Float.random(in: 0.3...0.6)
+                        }
                         
-                        let fireOutput = (self.fireNoiseState * 2.0) +
-                                        (self.fireHissFilter * 0.15) +
-                                        crackle +
-                                        (self.emberGlow * 0.8)
+                        // Simplified crackling - remove expensive sin calculation and random
+                        if self.frameCounter % 20 == 0 {
+                            self.fireCracklePhase += 0.1
+                        }
+                        let crackleTexture = self.fireCracklePhase * 0.01
                         
-                        output += fireOutput * 0.4 // Mix at lower level
+                        let fireOutput = self.fireRumble * 2.5 + self.fireHiss * 0.4 + pop1 * 1.2 + pop2 + crackleTexture
+                        output += fireOutput * 0.25
                     }
                     
-                    if self.activeAmbientSounds.contains(.ocean) {
-                        // Placeholder ocean sound (will be implemented later)
-                        output += Float.random(in: -0.2...0.2) * 0.3
+                    // Rain sound - reduced computation
+                    if hasRainSound {
+                        let baseRainNoise = Float.random(in: -0.3...0.3)
+                        self.rainBaseNoise += 0.04 * (baseRainNoise - self.rainBaseNoise)
+                        
+                        var dropletNoise: Float = 0.0
+                        if self.frameCounter % 100 == 0 && arc4random_uniform(20) == 0 { // Reduced frequency
+                            dropletNoise = Float.random(in: -0.4...0.4) * Float.random(in: 0.2...0.4)
+                        }
+                        
+                        self.rainSplashFilter += 0.15 * (dropletNoise - self.rainSplashFilter)
+                        
+                        if self.frameCounter % 160 == 0 { // Reduced frequency
+                            let rumbleNoise = Float.random(in: -0.1...0.1)
+                            self.rainDropletState += 0.02 * (rumbleNoise - self.rainDropletState)
+                        }
+                        
+                        let rainOutput = self.rainBaseNoise * 0.8 + dropletNoise * 0.2 + self.rainSplashFilter * 0.2 + self.rainDropletState * 0.8
+                        output += rainOutput * 0.2
                     }
                     
-                    if self.activeAmbientSounds.contains(.wind) {
-                        // Placeholder wind sound (will be implemented later)
-                        output += Float.random(in: -0.3...0.3) * 0.25
+                    // Bird sound - simplified oscillation
+                    if hasBirdSound {
+                        var birdCall: Float = 0.0
+                        
+                        if self.birdCallTimer > 0 {
+                            // Simplified bird call - remove expensive sin calculations
+                            let callProgress = Float(self.birdCallTimer) * 0.00125 // Pre-calculated 1/800
+                            let frequency = callProgress * 15.0 // Remove sin calculation
+                            birdCall = self.birdCallIntensity * frequency * 0.5 // Simplified
+                            self.birdCallTimer -= 1
+                        } else if self.frameCounter % 600 == 0 && arc4random_uniform(15) == 0 { // Reduced frequency
+                            self.birdCallTimer = Int.random(in: 200...800)
+                            self.birdCallIntensity = Float.random(in: 0.1...0.3)
+                        }
+                        
+                        self.birdCallFilter += 0.3 * (birdCall - self.birdCallFilter)
+                        
+                        var backgroundChirp: Float = 0.0
+                        if self.frameCounter % 300 == 0 && arc4random_uniform(30) == 0 { // Reduced frequency
+                            backgroundChirp = Float.random(in: -0.1...0.1) * Float.random(in: 0.2...0.4)
+                        }
+                        
+                        let birdOutput = self.birdCallFilter + backgroundChirp * 0.5
+                        output += birdOutput * 0.15
                     }
                     
-                    data[frame] = output * 0.8 // Final level adjustment
+                    // Efficient clamping and final output
+                    data[frame] = max(-0.9, min(0.9, output)) * finalGain
                 }
             }
             return noErr
@@ -664,11 +738,20 @@ struct ContentView: View {
         fadeOut(engine.mainMixerNode, duration: 0.2) {
             // Reset all filter states
             self.brownNoiseFilter1 = 0.0
-            self.fireNoiseState = 0.0
-            self.fireHissFilter = 0.0
-            self.crackleDuration = 0
-            self.crackleIntensity = 0.0
-            self.emberGlow = 0.0
+            self.fireRumble = 0.0
+            self.fireHiss = 0.0
+            self.firePop1Timer = 0
+            self.firePop1Intensity = 0.0
+            self.firePop2Timer = 0
+            self.firePop2Intensity = 0.0
+            self.fireCracklePhase = 0.0
+            self.rainDropletState = 0.0
+            self.rainSplashFilter = 0.0
+            self.rainBaseNoise = 0.0
+            self.birdCallTimer = 0
+            self.birdCallIntensity = 0.0
+            self.birdCallFilter = 0.0
+            self.frameCounter = 0
             
             // Stop and restart audio engine
             engine.stop()
