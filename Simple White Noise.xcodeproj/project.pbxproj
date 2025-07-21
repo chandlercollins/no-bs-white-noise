@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BF11F5F22E2E5B0300481E3C /* fire.mp3 */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		CB71C3152D0B5FCE000FB8BF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		BF11F5F22E2E5B0300481E3C /* fire.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = fire.mp3; sourceTree = "<group>"; };
 		CB71C3042D0B5FCC000FB8BF /* Simple White Noise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Simple White Noise.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C3142D0B5FCE000FB8BF /* Simple White NoiseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB71C31E2D0B5FCE000FB8BF /* Simple White NoiseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Simple White NoiseUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -75,6 +80,7 @@
 		CB71C2FB2D0B5FCC000FB8BF = {
 			isa = PBXGroup;
 			children = (
+				BF11F5F22E2E5B0300481E3C /* fire.mp3 */,
 				CB71C3062D0B5FCC000FB8BF /* Meditation App */,
 				CB71C3172D0B5FCE000FB8BF /* Meditation AppTests */,
 				CB71C3212D0B5FCE000FB8BF /* Meditation AppUITests */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF11F5F32E2E5B0300481E3C /* fire.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

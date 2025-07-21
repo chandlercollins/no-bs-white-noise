@@ -13,7 +13,8 @@
       "WebFetch(domain:dsp.stackexchange.com)",
       "WebFetch(domain:developer.apple.com)",
       "Bash(xcodebuild:*)",
-      "Bash(swiftc:*)"
+      "Bash(swiftc:*)",
+      "WebFetch(domain:craigmod.com)"
     ],
     "deny": []
   }
