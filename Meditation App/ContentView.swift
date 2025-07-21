@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var isPlaying = false
     @State private var pulseAnimation = false
     @State private var volume: Float = 1.0
+    @State private var isTransitioning = false
 
     var body: some View {
         VStack(spacing: 40) {
@@ -64,9 +65,16 @@ struct ContentView: View {
 
     // MARK: - Audio Control
     
-    /// Toggles between play and stop states
+    /// Toggles between play and stop states with debouncing
     private func togglePlayback() {
-        isPlaying ? stopWhiteNoise() : playWhiteNoise()
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        
+        if isPlaying {
+            stopWhiteNoise()
+        } else {
+            playWhiteNoise()
+        }
     }
     
     /// Starts white noise generation with audio processing chain
@@ -81,10 +89,13 @@ struct ContentView: View {
             try engine.start()
             audioEngine = engine
             whiteNoiseNode = noiseNode
-            fadeIn(engine.mainMixerNode)
+            fadeIn(engine.mainMixerNode) {
+                self.isTransitioning = false
+            }
             isPlaying = true
         } catch {
             print("Audio engine error: \(error.localizedDescription)")
+            isTransitioning = false
         }
     }
     
@@ -130,33 +141,48 @@ struct ContentView: View {
             audioEngine = nil
             whiteNoiseNode = nil
             isPlaying = false
+            isTransitioning = false
         }
     }
 
     // MARK: - Audio Fading
     
     /// Gradually increases volume from 0 to current volume setting
-    private func fadeIn(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 2.0) {
-        performFade(mixerNode: mixerNode, duration: duration, startVolume: 0.0, endVolume: volume)
+    private func fadeIn(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 2.0, completion: (() -> Void)? = nil) {
+        performFade(mixerNode: mixerNode, duration: duration, startVolume: 0.0, endVolume: volume, completion: completion)
     }
 
     /// Gradually decreases volume to 0 then executes completion
     private func fadeOut(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 0.5, completion: @escaping () -> Void) {
-        performFade(mixerNode: mixerNode, duration: duration, startVolume: mixerNode.outputVolume, endVolume: 0.0, completion: completion)
+        let currentVolume = mixerNode.outputVolume
+        performFade(mixerNode: mixerNode, duration: duration, startVolume: currentVolume, endVolume: 0.0, completion: completion)
     }
     
     /// Core fade implementation with configurable start/end volumes
     private func performFade(mixerNode: AVAudioMixerNode, duration: TimeInterval, startVolume: Float, endVolume: Float, completion: (() -> Void)? = nil) {
         fadeTimer?.invalidate()
         
+        // Capture current volume before any changes to ensure smooth transition
+        let actualStartVolume = mixerNode.outputVolume
+        
+        // If we're very close to the target, just set it directly to avoid micro-fades
+        if abs(actualStartVolume - endVolume) < 0.01 {
+            mixerNode.outputVolume = endVolume
+            completion?()
+            return
+        }
+        
         let fadeSteps = 50
         let stepDuration = duration / Double(fadeSteps)
-        let volumeDelta = (endVolume - startVolume) / Float(fadeSteps)
+        let volumeDelta = (endVolume - actualStartVolume) / Float(fadeSteps)
         
-        mixerNode.outputVolume = startVolume
+        // Don't immediately set volume - use current volume as true starting point
         
         fadeTimer = Timer.scheduledTimer(withTimeInterval: stepDuration, repeats: true) { timer in
             mixerNode.outputVolume += volumeDelta
+            
+            // Clamp volume to valid range to prevent audio artifacts
+            mixerNode.outputVolume = max(0.0, min(1.0, mixerNode.outputVolume))
             
             let isComplete = volumeDelta > 0 ? mixerNode.outputVolume >= endVolume : mixerNode.outputVolume <= endVolume
             
