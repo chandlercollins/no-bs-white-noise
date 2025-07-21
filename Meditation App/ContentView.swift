@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var volume: Float = 1.0
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
+    @State private var themeButtonOpacity: Double = 0.6
     
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
@@ -131,8 +132,21 @@ struct ContentView: View {
                         )
                 )
         }
+        .opacity(themeButtonOpacity)
+        .animation(.easeInOut(duration: 0.3), value: themeButtonOpacity)
         .accessibilityLabel("Theme: \(themeMode.displayName)")
         .accessibilityHint("Double tap to switch between light, dark, and auto themes")
+        .onTapGesture {
+            // Briefly brighten on tap
+            withAnimation(.easeInOut(duration: 0.1)) {
+                themeButtonOpacity = 1.0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    themeButtonOpacity = 0.6
+                }
+            }
+        }
     }
     
     // MARK: - Theme Management
