@@ -143,11 +143,64 @@ struct ContentView: View {
         }
     }
     
-    /// Volume control slider
+    /// Volume control slider with Liquid Glass design
     private var volumeSlider: some View {
-        Slider(value: volumeBinding, in: 0.0...1.0)
+        VStack(spacing: 8) {
+            // Volume icon
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(textColorForCurrentTheme.opacity(0.7))
+            
+            // Custom liquid glass slider
+            ZStack {
+                // Track background
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(sliderTrackBackground)
+                    .frame(height: 6)
+                
+                // Active track fill
+                HStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(sliderActiveTrack)
+                        .frame(height: 6)
+                        .scaleEffect(x: CGFloat(volume), anchor: .leading)
+                    Spacer(minLength: 0)
+                }
+                
+                // Glass thumb
+                HStack {
+                    Spacer()
+                        .frame(width: CGFloat(volume) * 180) // 200 - 20 for thumb width
+                    
+                    sliderThumb
+                    
+                    Spacer()
+                }
+            }
             .frame(width: 200)
-            .accentColor(sliderAccentColor)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let newValue = max(0, min(1, Float(value.location.x / 200)))
+                        volume = newValue
+                        updateVolume()
+                    }
+            )
+        }
+    }
+    
+    /// Liquid glass slider thumb with interactive scaling
+    private var sliderThumb: some View {
+        Circle()
+            .fill(sliderThumbColor)
+            .frame(width: 20, height: 20)
+            .background(
+                Circle()
+                    .fill(.ultraThinMaterial, in: Circle())
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            )
+            .scaleEffect(1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: volume)
     }
     
     /// Binding for volume slider with automatic audio update
@@ -264,6 +317,29 @@ struct ContentView: View {
     /// Menu handle color with proper contrast
     private var menuHandleColor: Color {
         effectiveColorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.3)
+    }
+    
+    /// Slider track background with Liquid Glass aesthetic
+    private var sliderTrackBackground: some View {
+        ZStack {
+            if effectiveColorScheme == .dark {
+                Color.white.opacity(0.1)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                Color.black.opacity(0.06)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+    }
+    
+    /// Active slider track with theme-aware coloring
+    private var sliderActiveTrack: Color {
+        effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
+    }
+    
+    /// Slider thumb color with glass effect
+    private var sliderThumbColor: Color {
+        effectiveColorScheme == .dark ? Color.white.opacity(0.9) : Color.white
     }
     
     /// Bottom menu button with up caret
