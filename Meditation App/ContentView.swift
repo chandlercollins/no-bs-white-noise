@@ -258,7 +258,7 @@ struct ContentView: View {
             Color.black.opacity(0.3)
                 .ignoresSafeArea(.all)
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.3)) {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                         isMenuExpanded = false
                     }
                 }
@@ -272,7 +272,7 @@ struct ContentView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(textColorForCurrentTheme.opacity(0.3))
                         .frame(width: 40, height: 4)
-                        .padding(.top, 10)
+                        .padding(.top, 12)
                     
                     // Noise type selector
                     HStack(spacing: 30) {
@@ -281,10 +281,8 @@ struct ContentView: View {
                         Spacer()
                     }
                     .padding(.horizontal, 20)
-                    
-                    Spacer()
+                    .padding(.bottom, 12)
                 }
-                .frame(height: UIScreen.main.bounds.height / 3)
                 .background(
                     backgroundColorForCurrentTheme
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -294,7 +292,7 @@ struct ContentView: View {
             }
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-        .animation(.easeInOut(duration: 0.3), value: isMenuExpanded)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
     }
     
     /// Noise type toggle button
@@ -499,7 +497,7 @@ struct ContentView: View {
     /// Toggles the bottom menu visibility
     private func toggleMenu() {
         triggerLightHapticFeedback()
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
             isMenuExpanded.toggle()
         }
     }
