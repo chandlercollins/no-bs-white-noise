@@ -1,5 +1,7 @@
 # No-BS White Noise
 
+![No-BS White Noise](app-icon.png)
+
 Fast, simple, focused. White noise that just works.
 
 ## What It Does
