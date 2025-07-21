@@ -509,17 +509,31 @@ struct ContentView: View {
         guard noiseType != type else { return }
         
         triggerLightHapticFeedback()
-        noiseType = type
         
-        // Reset brown noise filter state when switching
-        brownNoiseFilter1 = 0.0
-        
-        // If audio is playing, restart with new noise type
+        // If audio is playing, do smooth transition with fade
         if isPlaying {
-            stopWhiteNoise()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.playWhiteNoise()
+            guard let engine = audioEngine else { return }
+            
+            // Fade out current audio
+            fadeOut(engine.mainMixerNode, duration: 0.2) {
+                // Reset filter state and change noise type
+                self.brownNoiseFilter1 = 0.0
+                self.noiseType = type
+                
+                // Stop and restart audio engine
+                engine.stop()
+                self.audioEngine = nil
+                self.whiteNoiseNode = nil
+                
+                // Small delay then restart with new noise type
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.playWhiteNoise()
+                }
             }
+        } else {
+            // Not playing, just change type and reset state
+            brownNoiseFilter1 = 0.0
+            noiseType = type
         }
     }
     
