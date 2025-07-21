@@ -272,18 +272,36 @@ struct ContentView: View {
         .padding(.bottom, 20)
     }
     
-    /// Overlay menu that slides up from bottom
+    /// Overlay menu that slides up from bottom as unified element
     private var menuOverlay: some View {
-        VStack {
+        VStack(spacing: 0) {
             Spacer()
             
-            // Menu content - full width drawer with Liquid Glass design
-            VStack(spacing: 20) {
-                // Menu handle
+            // Unified sliding overlay with caret at top
+            VStack(spacing: 0) {
+                // Up caret at top of overlay
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                            isMenuExpanded = false
+                        }
+                    }) {
+                        Image(systemName: "chevron.up")
+                            .font(.title2)
+                            .foregroundColor(menuHandleColor)
+                            .rotationEffect(.degrees(180)) // Point down to indicate close
+                    }
+                    Spacer()
+                }
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                
+                // Menu handle bar
                 RoundedRectangle(cornerRadius: 2)
                     .fill(menuHandleColor)
                     .frame(width: 40, height: 4)
-                    .padding(.top, 12)
+                    .padding(.bottom, 20)
                 
                 // Noise type selector
                 HStack(spacing: 30) {
@@ -292,7 +310,7 @@ struct ContentView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 20)
+                .padding(.bottom, 24)
             }
             .frame(maxWidth: .infinity)
             .background(
@@ -300,22 +318,11 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: -8)
             )
-            .ignoresSafeArea(.container, edges: .horizontal)
+            .clipped()
+            .ignoresSafeArea(.all, edges: [.horizontal, .bottom])
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.move(edge: .bottom))
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
-        .onTapGesture {
-            // Tap outside menu to close
-        }
-        .background(
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuExpanded = false
-                    }
-                }
-        )
     }
     
     /// Noise type toggle button
