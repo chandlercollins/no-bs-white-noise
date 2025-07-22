@@ -30,28 +30,6 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CB71C3132D0B5FCE000FB8BF"
-               BuildableName = "No-BS White NoiseTests.xctest"
-               BlueprintName = "No-BS White NoiseTests"
-               ReferencedContainer = "container:No-BS White Noise.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CB71C31D2D0B5FCE000FB8BF"
-               BuildableName = "No-BS White NoiseUITests.xctest"
-               BlueprintName = "No-BS White NoiseUITests"
-               ReferencedContainer = "container:No-BS White Noise.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

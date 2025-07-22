@@ -644,21 +644,31 @@ struct ContentView: View {
         fireAudioPlayer = player
         fireAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        // Start at random position in the MP3 for variety
-        let duration = fireAudioPlayer?.duration ?? 0
-        if duration > 0 {
-            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-            fireAudioPlayer?.currentTime = randomStart
-        }
-        
-        fireAudioPlayer?.play()
-        
         // Set playing state immediately for smooth UI feedback
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying = true
         }
         
+        // Start playback immediately to avoid hangs
+        fireAudioPlayer?.play()
         isTransitioning = false
+        
+        // Set random position after playback has started to avoid blocking
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let audioPlayer = self.fireAudioPlayer else { return }
+            
+            // Small delay to ensure playback has started
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            let duration = audioPlayer.duration
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
+                
+                DispatchQueue.main.async {
+                    audioPlayer.currentTime = randomStart
+                }
+            }
+        }
     }
     
     /// Plays rain audio using preloaded AVAudioPlayer for instant playback
@@ -674,21 +684,31 @@ struct ContentView: View {
         rainAudioPlayer = player
         rainAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        // Start at random position in the MP3 for variety
-        let duration = rainAudioPlayer?.duration ?? 0
-        if duration > 0 {
-            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-            rainAudioPlayer?.currentTime = randomStart
-        }
-        
-        rainAudioPlayer?.play()
-        
         // Set playing state immediately for smooth UI feedback
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying = true
         }
         
+        // Start playback immediately to avoid hangs
+        rainAudioPlayer?.play()
         isTransitioning = false
+        
+        // Set random position after playback has started to avoid blocking
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let audioPlayer = self.rainAudioPlayer else { return }
+            
+            // Small delay to ensure playback has started
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            let duration = audioPlayer.duration
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
+                
+                DispatchQueue.main.async {
+                    audioPlayer.currentTime = randomStart
+                }
+            }
+        }
     }
     
     /// Plays birds audio using preloaded AVAudioPlayer for instant playback
@@ -704,21 +724,31 @@ struct ContentView: View {
         birdsAudioPlayer = player
         birdsAudioPlayer?.numberOfLoops = -1 // Infinite loop
         
-        // Start at random position in the MP3 for variety
-        let duration = birdsAudioPlayer?.duration ?? 0
-        if duration > 0 {
-            let randomStart = TimeInterval.random(in: 0...(duration * 0.9)) // Don't start too close to end
-            birdsAudioPlayer?.currentTime = randomStart
-        }
-        
-        birdsAudioPlayer?.play()
-        
         // Set playing state immediately for smooth UI feedback
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying = true
         }
         
+        // Start playback immediately to avoid hangs
+        birdsAudioPlayer?.play()
         isTransitioning = false
+        
+        // Set random position after playback has started to avoid blocking
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let audioPlayer = self.birdsAudioPlayer else { return }
+            
+            // Small delay to ensure playback has started
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            let duration = audioPlayer.duration
+            if duration > 0 {
+                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
+                
+                DispatchQueue.main.async {
+                    audioPlayer.currentTime = randomStart
+                }
+            }
+        }
     }
     
     /// Creates audio source node for noise generation based on current type
@@ -1035,7 +1065,7 @@ struct ContentView: View {
             do {
                 preloadedBirdsPlayer = try AVAudioPlayer(contentsOf: url)
                 preloadedBirdsPlayer?.prepareToPlay()
-                preloadedBirdsPlayer?.volume = 0.3
+                preloadedBirdsPlayer?.volume = 0.6
             } catch {
                 print("Failed to preload birds audio: \(error.localizedDescription)")
             }
@@ -1058,8 +1088,10 @@ struct ContentView: View {
             resetScreenDimTimer()
         } else {
             // When audio stops, return to normal system dimming
-            UIApplication.shared.isIdleTimerDisabled = false
-            screenDimTimer?.invalidate()
+            DispatchQueue.main.async {
+                UIApplication.shared.isIdleTimerDisabled = false
+                self.screenDimTimer?.invalidate()
+            }
         }
     }
     
@@ -1075,17 +1107,22 @@ struct ContentView: View {
     
     /// Resets screen dim timer following Apple's recommendations
     private func resetScreenDimTimer() {
-        // Cancel existing timer
-        screenDimTimer?.invalidate()
-        
-        // Prevent immediate dimming
-        UIApplication.shared.isIdleTimerDisabled = true
-        
-        // Apple's recommendation: 30 seconds of inactivity before allowing screen to dim
-        // This balances user experience with battery life
-        screenDimTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { _ in
-            // After 30 seconds of inactivity, allow system to dim screen
-            UIApplication.shared.isIdleTimerDisabled = false
+        // Ensure we're on the main thread for UI updates and timer creation
+        DispatchQueue.main.async {
+            // Cancel existing timer
+            self.screenDimTimer?.invalidate()
+            
+            // Prevent immediate dimming
+            UIApplication.shared.isIdleTimerDisabled = true
+            
+            // Apple's recommendation: 30 seconds of inactivity before allowing screen to dim
+            // This balances user experience with battery life
+            self.screenDimTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { _ in
+                // After 30 seconds of inactivity, allow system to dim screen
+                DispatchQueue.main.async {
+                    UIApplication.shared.isIdleTimerDisabled = false
+                }
+            }
         }
     }
     
@@ -1128,6 +1165,14 @@ struct ContentView: View {
         nowPlayingInfo[MPMediaItemPropertyArtist] = "No-BS White Noise"
         nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
         nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        
+        // Set album artwork to app logo
+        if let logoImage = UIImage(named: "logo") {
+            let artwork = MPMediaItemArtwork(boundsSize: logoImage.size) { _ in
+                return logoImage
+            }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
