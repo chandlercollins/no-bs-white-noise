@@ -3,13 +3,16 @@ import AVFoundation
 import UIKit
 import MediaPlayer
 
+
 /// Theme mode options for the application
 enum ThemeMode: String, CaseIterable {
+    case system = "system"
     case light = "light"
     case dark = "dark"
     
     var iconName: String {
         switch self {
+        case .system: return "circle.lefthalf.filled"
         case .light: return "sun.max.fill"
         case .dark: return "moon.fill"
         }
@@ -17,6 +20,7 @@ enum ThemeMode: String, CaseIterable {
     
     var displayName: String {
         switch self {
+        case .system: return "System"
         case .light: return "Light"
         case .dark: return "Dark"
         }
@@ -44,51 +48,28 @@ enum SoundType: String, CaseIterable {
 
 /// Main view for the white noise application
 struct ContentView: View {
-    // MARK: - Audio Properties
+    // MARK: - Audio Properties (Simplified for Performance)
     @State private var audioEngine: AVAudioEngine?
     @State private var whiteNoiseNode: AVAudioSourceNode?
-    @State private var fadeTimer: Timer?
-    @State private var fireAudioPlayer: AVAudioPlayer?
-    @State private var rainAudioPlayer: AVAudioPlayer?
-    @State private var birdsAudioPlayer: AVAudioPlayer?
-    @State private var preloadedFirePlayer: AVAudioPlayer?
-    @State private var preloadedRainPlayer: AVAudioPlayer?
-    @State private var preloadedBirdsPlayer: AVAudioPlayer?
-    @State private var brownNoiseFilter1: Float = 0.0
-    @State private var fireRumble: Float = 0.0
-    @State private var fireHiss: Float = 0.0
-    @State private var firePop1Timer: Int = 0
-    @State private var firePop1Intensity: Float = 0.0
-    @State private var firePop2Timer: Int = 0
-    @State private var firePop2Intensity: Float = 0.0
-    @State private var fireCracklePhase: Float = 0.0
-    @State private var rainDropletState: Float = 0.0
-    @State private var rainSplashFilter: Float = 0.0
-    @State private var rainBaseNoise: Float = 0.0
-    @State private var birdCallTimer: Int = 0
-    @State private var birdCallIntensity: Float = 0.0
-    @State private var birdCallFilter: Float = 0.0
-    @State private var secondBirdTimer: Int = 0
-    @State private var secondBirdIntensity: Float = 0.0
-    @State private var thirdBirdTimer: Int = 0
-    @State private var thirdBirdIntensity: Float = 0.0
-    @State private var birdSpeciesSwitch: Int = 0
-    @State private var insectChirpTimer: Int = 0
+    @State private var currentAudioPlayer: AVAudioPlayer?
+    @State private var preloadedPlayers: [SoundType: AVAudioPlayer] = [:]
+    @State private var brownNoiseFilter: Float = 0.0
     @State private var frameCounter: Int = 0
-    @State private var rainIntensity: Float = 0.7
-    @State private var windGustPhase: Float = 0.0
     
-    // MARK: - UI State
+    // MARK: - UI State (Optimized)
     @State private var isPlaying = false
     @State private var pulseAnimation = false
+    @State private var handlePulseAnimation = false
     @State private var isTransitioning = false
-    @State private var themeMode: ThemeMode = .light
+    @State private var themeMode: ThemeMode = .system
     @State private var themeButtonOpacity: Double = 0.6
-    @State private var selectedSoundType: SoundType = .white // Default sound - button will show as active
+    @State private var selectedSoundType: SoundType = .white
     @State private var isMenuExpanded = false
-    @State private var isSoundTransitioning = false
-    @State private var screenDimTimer: Timer?
     @State private var lastUserInteraction: Date = Date()
+    
+    // MARK: - Task Management
+    @State private var audioTask: Task<Void, Never>?
+    @State private var screenDimTask: Task<Void, Error>?
     
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
@@ -97,8 +78,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Background
-            backgroundColorForCurrentTheme
+            // Apple Sports-inspired gradient background - covers entire screen
+            backgroundForCurrentTheme
                 .ignoresSafeArea(.all)
             
             VStack(spacing: mainVerticalSpacing) {
@@ -122,18 +103,15 @@ struct ContentView: View {
                 // Bottom menu caret button
                 bottomMenuButton
             }
+            .padding() // Only apply padding to content, not background
             
             // Overlay menu
             if isMenuExpanded {
                 menuOverlay
             }
         }
-        .padding()
         .preferredColorScheme(preferredColorScheme)
         .onAppear {
-            // Set initial theme to match system setting
-            themeMode = systemColorScheme == .dark ? .dark : .light
-            
             // Initialize screen management
             setupScreenManagement()
             
@@ -142,6 +120,20 @@ struct ContentView: View {
             
             // Set up remote control commands for Control Center
             setupRemoteCommandCenter()
+            
+            // Start handle pulse animation after a short delay to draw attention
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation {
+                    handlePulseAnimation = true
+                }
+                
+                // Stop the pulse after a few cycles
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+                    withAnimation(.easeOut(duration: 1.0)) {
+                        handlePulseAnimation = false
+                    }
+                }
+            }
         }
         .onChange(of: isPlaying) { _, newValue in
             // Update screen dimming behavior based on playback state
@@ -151,11 +143,8 @@ struct ContentView: View {
             updateNowPlayingInfo()
         }
         .onDisappear {
-            // Clean up timers and audio when view disappears
-            fadeTimer?.invalidate()
-            fadeTimer = nil
-            screenDimTimer?.invalidate()
-            screenDimTimer = nil
+            // Clean up all resources when view disappears
+            cleanupAllResources()
         }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
             handleAudioInterruption(notification)
@@ -168,62 +157,198 @@ struct ContentView: View {
     
     // MARK: - UI Components
     
-    /// App logo with theme-aware styling and responsive sizing
+    /// App logo with immersive Liquid Glass styling and depth
     private var logoView: some View {
         VStack(alignment: .leading, spacing: logoSpacing) {
-            // Handwritten correction
+            // Handwritten correction with enhanced glass depth
             Text("No-BS")
                 .font(.system(size: logoSubtitleSize, weight: .medium, design: .default))
-                .foregroundColor(textColorForCurrentTheme.opacity(0.8))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color.secondary.opacity(0.9),
+                            Color.secondary.opacity(0.7)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .italic()
-            
-            // Main logo text
+                .shadow(
+                    color: effectiveColorScheme == .dark ?
+                        .white.opacity(0.08) : .black.opacity(0.12),
+                    radius: 1,
+                    x: 0,
+                    y: 0.5
+                )
+
+            // Main logo text with prominent glass effects and depth
             HStack(spacing: 0) {
                 Text("White")
                     .font(.system(size: logoTitleSize, weight: .bold, design: .default))
-                    .foregroundColor(textColorForCurrentTheme)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color.primary.opacity(0.98),
+                                Color.primary.opacity(0.88)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ?
+                            .white.opacity(0.2) : .white.opacity(0.4),
+                        radius: 2,
+                        x: 0,
+                        y: -0.5
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ?
+                            .black.opacity(0.4) : .black.opacity(0.15),
+                        radius: 3,
+                        x: 0,
+                        y: 1.5
+                    )
+
                 Text(" Noise")
                     .font(.system(size: logoTitleSize, weight: .regular, design: .default))
-                    .foregroundColor(textColorForCurrentTheme)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color.primary.opacity(0.85),
+                                Color.primary.opacity(0.7)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ?
+                            .white.opacity(0.1) : .white.opacity(0.3),
+                        radius: 1.5,
+                        x: 0,
+                        y: -0.5
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ?
+                            .black.opacity(0.3) : .black.opacity(0.1),
+                        radius: 2,
+                        x: 0,
+                        y: 1
+                    )
             }
         }
-        .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
+        .animation(.spring(response: 0.5, dampingFraction: 0.78), value: effectiveColorScheme)
     }
     
-    /// Play/Stop button with pulse animation and responsive sizing
+    /// Play/Stop button with immersive Liquid Glass design
     private var playStopButton: some View {
         Button(action: togglePlayback) {
             ZStack {
+                // Outer glow ring for depth
                 Circle()
-                    .fill(isPlaying ? playButtonStopColor : playButtonPlayColor)
-                    .frame(width: playButtonSize, height: playButtonSize)
-                    .scaleEffect(pulseAnimation ? (isPlaying ? 1.15 : 1.05) : 1.0)
-                    .animation(
-                        pulseAnimation ? 
-                        .easeInOut(duration: isPlaying ? 1.0 : 2.0).repeatForever(autoreverses: true) : 
-                        .easeInOut(duration: 0.3), 
-                        value: pulseAnimation
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.3),
+                                (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.0)
+                            ],
+                            center: .center,
+                            startRadius: playButtonSize * 0.35,
+                            endRadius: playButtonSize * 0.6
+                        )
                     )
-                
-                Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                    .font(.system(size: playButtonIconSize))
-                    .foregroundColor(.white)
-                    .animation(.easeInOut(duration: 0.15), value: isPlaying)
+                    .frame(width: playButtonSize * 1.2, height: playButtonSize * 1.2)
+                    .blur(radius: 20)
+                    .opacity(pulseAnimation ? 0.6 : 0.3)
+
+                // Main glass button layers
+                ZStack {
+                    // Base color layer with gradient
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.9),
+                                    (isPlaying ? playButtonStopColor : playButtonPlayColor)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    // Glass refraction layer
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.25),
+                                    Color.white.opacity(0.05),
+                                    Color.clear,
+                                    Color.black.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    // Specular highlight
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white.opacity(0.4),
+                                    Color.white.opacity(0.1),
+                                    Color.clear
+                                ],
+                                center: .init(x: 0.3, y: 0.3),
+                                startRadius: 0,
+                                endRadius: playButtonSize * 0.4
+                            )
+                        )
+
+                    // Ultra thin material for glass effect
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .opacity(0.3)
+
+                    // Icon with enhanced depth
+                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                        .font(.system(size: playButtonIconSize, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.95),
+                                    Color.white.opacity(0.85)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
+                        .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.5), radius: 8, x: 0, y: 0)
+                }
+                .frame(width: playButtonSize, height: playButtonSize)
+                .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.3), radius: 20, x: 0, y: 10)
+                .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: 15)
+                .scaleEffect(pulseAnimation ? (isPlaying ? 1.03 : 1.02) : 1.0)
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: isPlaying)
-        .onAppear { 
-            pulseAnimation = false 
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.5, dampingFraction: 0.75), value: isPlaying)
+        .animation(
+            pulseAnimation ?
+            .easeInOut(duration: isPlaying ? 1.2 : 2.5).repeatForever(autoreverses: true) :
+            .spring(response: 0.5, dampingFraction: 0.75),
+            value: pulseAnimation
+        )
+        .onAppear {
+            pulseAnimation = false
         }
         .onChange(of: isPlaying) { _, newValue in
-            // Prevent animation conflicts during sound transitions
-            guard !isSoundTransitioning else { return }
-            
-            // Delay pulse animation slightly to prevent conflicts with play state changes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    self.pulseAnimation = newValue
-                }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+                self.pulseAnimation = newValue
             }
         }
     }
@@ -231,34 +356,82 @@ struct ContentView: View {
     
     // MARK: - Theme Components
     
-    /// Theme toggle button with appropriate icon and responsive sizing
+    /// Theme toggle button with Liquid Glass enhancement
     private var themeToggleButton: some View {
         Button(action: cycleThemeMode) {
-            Image(systemName: themeMode.iconName)
-                .font(.system(size: themeButtonIconSize, weight: .regular))
-                .foregroundColor(textColorForCurrentTheme)
-                .frame(width: themeButtonSize, height: themeButtonSize)
-                .background(
-                    Circle()
-                        .fill(buttonBackgroundColorForCurrentTheme)
-                        .overlay(
-                            Circle()
-                                .stroke(textColorForCurrentTheme.opacity(0.2), lineWidth: themeButtonStrokeWidth)
+            ZStack {
+                // Glass background layers
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                effectiveColorScheme == .dark ?
+                                    Color.white.opacity(0.1) : Color.white.opacity(0.6),
+                                effectiveColorScheme == .dark ?
+                                    Color.white.opacity(0.05) : Color.white.opacity(0.4)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                )
+                    )
+
+                // Material layer
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.5)
+
+                // Specular highlight
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear
+                            ],
+                            center: .init(x: 0.35, y: 0.35),
+                            startRadius: 0,
+                            endRadius: themeButtonSize * 0.4
+                        )
+                    )
+
+                // Icon with depth
+                Image(systemName: themeMode.iconName)
+                    .font(.system(size: themeButtonIconSize, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color.secondary.opacity(0.95),
+                                Color.secondary.opacity(0.75)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ?
+                            .white.opacity(0.1) : .black.opacity(0.15),
+                        radius: 1,
+                        x: 0,
+                        y: 0.5
+                    )
+            }
+            .frame(width: themeButtonSize, height: themeButtonSize)
+            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            .scaleEffect(themeButtonOpacity == 1.0 ? 1.12 : 1.0)
         }
+        .buttonStyle(.plain)
         .opacity(themeButtonOpacity)
-        .animation(.easeInOut(duration: 0.3), value: themeButtonOpacity)
-        .animation(.easeInOut(duration: 0.4), value: effectiveColorScheme)
+        .animation(.spring(response: 0.4, dampingFraction: 0.72), value: themeButtonOpacity)
+        .animation(.spring(response: 0.5, dampingFraction: 0.78), value: effectiveColorScheme)
         .accessibilityLabel("Theme: \(themeMode.displayName)")
         .accessibilityHint("Double tap to switch between light and dark themes")
         .onTapGesture {
-            // Briefly brighten on tap
-            withAnimation(.easeInOut(duration: 0.1)) {
+            // Briefly brighten on tap with spring animation
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.65)) {
                 themeButtonOpacity = 1.0
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                withAnimation(.easeInOut(duration: 0.8)) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
                     themeButtonOpacity = 0.6
                 }
             }
@@ -270,6 +443,7 @@ struct ContentView: View {
     /// Returns the appropriate ColorScheme based on current theme mode
     private var preferredColorScheme: ColorScheme? {
         switch themeMode {
+        case .system: return nil  // Use system default
         case .light: return .light
         case .dark: return .dark
         }
@@ -278,14 +452,53 @@ struct ContentView: View {
     /// Returns the current effective color scheme
     private var effectiveColorScheme: ColorScheme {
         switch themeMode {
+        case .system: return systemColorScheme
         case .light: return .light
         case .dark: return .dark
         }
     }
     
-    /// Background color based on current theme
-    private var backgroundColorForCurrentTheme: Color {
-        effectiveColorScheme == .dark ? .black : .white
+    /// Liquid Glass inspired gradient background with depth and atmosphere
+    private var backgroundForCurrentTheme: some View {
+        ZStack {
+            if effectiveColorScheme == .dark {
+                // Dark mode: Rich gradient with depth for glass refraction
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.15, green: 0.15, blue: 0.18),  // Slightly cooler top
+                        Color(red: 0.10, green: 0.10, blue: 0.12),  // Deep middle
+                        Color(red: 0.06, green: 0.06, blue: 0.08),  // Rich bottom
+                        Color(red: 0.04, green: 0.04, blue: 0.06)   // Deepest shadow
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                // Light mode: Bright gradient with subtle warmth
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.99, green: 0.99, blue: 1.00),  // Cool bright top
+                        Color(red: 0.97, green: 0.97, blue: 0.98),  // Soft middle
+                        Color(red: 0.94, green: 0.94, blue: 0.96),  // Deeper middle
+                        Color(red: 0.90, green: 0.90, blue: 0.93)   // Gentle bottom
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+
+            // Subtle atmospheric overlay for glass-like depth
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(effectiveColorScheme == .dark ? 0.02 : 0.04),
+                    Color.clear
+                ],
+                center: .topLeading,
+                startRadius: 50,
+                endRadius: 600
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     /// Text color with WCAG-compliant contrast
@@ -406,7 +619,7 @@ struct ContentView: View {
     
     /// Menu overlay height that scales with device
     private var menuOverlayHeight: CGFloat {
-        let baseHeight: CGFloat = 120
+        let baseHeight: CGFloat = 160
         return baseHeight * scalingFactor
     }
     
@@ -423,17 +636,42 @@ struct ContentView: View {
     }
     
     
-    /// Liquid Glass background for menu overlay following Apple's design language
+    /// Immersive Liquid Glass background for menu overlay with depth and refraction
     private var liquidGlassBackground: some View {
-        // Base translucent layer with ultraThinMaterial
-        if effectiveColorScheme == .dark {
-            // Dark mode: lighter silver translucent
-            Color.white.opacity(0.08)
-                .background(.ultraThinMaterial)
-        } else {
-            // Light mode: mid to dark grey translucent
-            Color.black.opacity(0.05)
-                .background(.ultraThinMaterial)
+        ZStack {
+            // Base translucent layer
+            Rectangle()
+                .fill(effectiveColorScheme == .dark ? .ultraThinMaterial : .thinMaterial)
+
+            // Gradient overlay for depth and color refraction
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            effectiveColorScheme == .dark ?
+                                Color.white.opacity(0.05) : Color.white.opacity(0.4),
+                            effectiveColorScheme == .dark ?
+                                Color.clear : Color.white.opacity(0.2)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+
+            // Edge glow effect for glass borders
+            Rectangle()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(effectiveColorScheme == .dark ? 0.2 : 0.4),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+                .blur(radius: 0.5)
         }
     }
     
@@ -443,88 +681,316 @@ struct ContentView: View {
     }
     
     
-    /// Bottom menu button with up caret and responsive sizing
+    /// Bottom menu button with Liquid Glass styling
     private var bottomMenuButton: some View {
         Button(action: toggleMenu) {
-            Image(systemName: "chevron.up")
-                .font(.system(size: menuCaretIconSize))
-                .foregroundColor(textColorForCurrentTheme.opacity(0.7))
-                .rotationEffect(.degrees(isMenuExpanded ? 180 : 0))
-                .animation(.easeInOut(duration: 0.3), value: isMenuExpanded)
+            VStack(spacing: 6) {
+                ZStack {
+                    // Glass handle with gradient and depth
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.secondary.opacity(0.8),
+                                    Color.secondary.opacity(0.5)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 40, height: 5.5)
+
+                    // Specular highlight on handle
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.3),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 40, height: 2.5)
+                        .offset(y: -1.5)
+                }
+                .opacity(isMenuExpanded ? 0.6 : (handlePulseAnimation ? 1.0 : 0.85))
+                .scaleEffect(isMenuExpanded ? 1.15 : (handlePulseAnimation ? 1.12 : 1.0))
+                .shadow(
+                    color: .black.opacity(effectiveColorScheme == .dark ? 0.3 : 0.15),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
+                .shadow(
+                    color: effectiveColorScheme == .dark ?
+                        .white.opacity(0.05) : .white.opacity(0.2),
+                    radius: 1,
+                    x: 0,
+                    y: -0.5
+                )
+                .animation(
+                    handlePulseAnimation ?
+                    .easeInOut(duration: 1.5).repeatForever(autoreverses: true) :
+                    .spring(response: 0.4, dampingFraction: 0.73),
+                    value: handlePulseAnimation
+                )
+
+                // Enhanced indicator text with glass effect
+                if !isMenuExpanded {
+                    Text("Sounds")
+                        .font(.system(.caption2, design: .default, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color.gray.opacity(0.7),
+                                    Color.gray.opacity(0.5)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(
+                            color: effectiveColorScheme == .dark ?
+                                .black.opacity(0.3) : .white.opacity(0.5),
+                            radius: 1,
+                            x: 0,
+                            y: 0.5
+                        )
+                }
+            }
+            .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isMenuExpanded)
         }
         .padding(.bottom, bottomMenuPadding)
+        .onChange(of: isMenuExpanded) { _, expanded in
+            // Stop pulse animation when menu is opened
+            if expanded {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    handlePulseAnimation = false
+                }
+            }
+        }
     }
     
-    /// Overlay menu that slides up from bottom as unified element
+    /// Overlay menu that slides up from bottom with immersive glass effect
     private var menuOverlay: some View {
         VStack(spacing: 0) {
             Spacer()
-            
-            // Unified sliding overlay - fixed height, extends to bottom
+
+            // Liquid Glass menu panel with enhanced depth
             VStack(spacing: 0) {
-                // Up caret at top of overlay
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                            isMenuExpanded = false
+                Spacer()
+
+                menuContent
+                    .background(
+                        ZStack {
+                            liquidGlassBackground
+
+                            // Additional specular highlight at top edge
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(effectiveColorScheme == .dark ? 0.08 : 0.3),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 60)
+                            .frame(maxHeight: .infinity, alignment: .top)
                         }
-                    }) {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: menuCaretIconSize))
-                            .foregroundColor(menuHandleColor)
-                            .rotationEffect(.degrees(180)) // Point down to indicate close
-                    }
-                    Spacer()
-                }
-                .padding(.top, menuTopPadding)
-                
-                // Center the sound buttons vertically in remaining space
-                Spacer()
-                
-                // Sound selector - all sounds on equal footing
-                HStack {
-                    soundButton(.white)
-                    Spacer()
-                    soundButton(.brown)
-                    Spacer()
-                    soundButton(.fire)
-                    Spacer()
-                    soundButton(.rain)
-                    Spacer()
-                    soundButton(.birds)
-                }
-                .padding(.horizontal, soundMenuHorizontalPadding)
-                
-                // Equal space below to center the buttons
-                Spacer()
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: -10)
+                        .shadow(color: .black.opacity(0.1), radius: 50, x: 0, y: -20)
+                    )
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: menuOverlayHeight)
-            .background(
-                liquidGlassBackground
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: -8)
-            .ignoresSafeArea(.container, edges: .horizontal)
         }
-        .transition(.move(edge: .bottom))
-        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuExpanded)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.spring(response: 0.5, dampingFraction: 0.78), value: isMenuExpanded)
     }
     
-    /// Sound button - only one can be selected at a time with responsive sizing
+    /// Menu content with clean design and subtle Liquid Glass touches
+    private var menuContent: some View {
+        VStack(spacing: 0) {
+            // Clean drag handle
+            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                .fill(.secondary)
+                .frame(width: 36, height: 5)
+                .opacity(0.6)
+                .padding(.top, 16)
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuExpanded = false
+                    }
+                }
+            
+            // Center the sound buttons vertically in remaining space
+            Spacer()
+            
+            // Sound selector - clean layout
+            HStack {
+                soundButton(.white)
+                Spacer()
+                soundButton(.brown)
+                Spacer()
+                soundButton(.fire)
+                Spacer()
+                soundButton(.rain)
+                Spacer()
+                soundButton(.birds)
+            }
+            .padding(.horizontal, soundMenuHorizontalPadding)
+            
+            // Equal space below to center the buttons
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: menuOverlayHeight)
+        .ignoresSafeArea(.container, edges: .horizontal)
+    }
+    
+    /// Sound button with immersive Liquid Glass design
     private func soundButton(_ type: SoundType) -> some View {
         Button(action: { selectSound(type) }) {
-            ZStack {
-                Circle()
-                    .fill(selectedSoundType == type ? soundBackgroundColor(for: type) : buttonBackgroundColorForCurrentTheme)
+            VStack(spacing: 12) {
+                ZStack {
+                    let isSelected = selectedSoundType == type
+
+                    // Outer glow for selected state
+                    if isSelected {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        soundBackgroundColor(for: type).opacity(0.4),
+                                        soundBackgroundColor(for: type).opacity(0.0)
+                                    ],
+                                    center: .center,
+                                    startRadius: soundButtonSize * 0.3,
+                                    endRadius: soundButtonSize * 0.7
+                                )
+                            )
+                            .frame(width: soundButtonSize * 1.3, height: soundButtonSize * 1.3)
+                            .blur(radius: 12)
+                    }
+
+                    // Main button glass layers
+                    ZStack {
+                        // Base layer
+                        Circle()
+                            .fill(
+                                isSelected ?
+                                LinearGradient(
+                                    colors: [
+                                        soundBackgroundColor(for: type).opacity(0.9),
+                                        soundBackgroundColor(for: type)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ) :
+                                LinearGradient(
+                                    colors: [
+                                        effectiveColorScheme == .dark ?
+                                            Color.white.opacity(0.08) : Color.white.opacity(0.5),
+                                        effectiveColorScheme == .dark ?
+                                            Color.white.opacity(0.04) : Color.white.opacity(0.3)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+
+                        // Material layer for glass effect
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .opacity(isSelected ? 0.2 : 0.6)
+
+                        // Glass refraction
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(isSelected ? 0.3 : 0.2),
+                                        Color.clear,
+                                        Color.black.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+
+                        // Specular highlight
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color.white.opacity(isSelected ? 0.4 : 0.3),
+                                        Color.clear
+                                    ],
+                                    center: .init(x: 0.35, y: 0.35),
+                                    startRadius: 0,
+                                    endRadius: soundButtonSize * 0.35
+                                )
+                            )
+
+                        // Icon with enhanced depth
+                        Text(iconForSound(type))
+                            .font(.system(size: soundButtonIconSize, weight: .semibold))
+                            .foregroundStyle(
+                                isSelected ?
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.95),
+                                        Color.white.opacity(0.85)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ) :
+                                LinearGradient(
+                                    colors: [
+                                        Color.primary.opacity(0.9),
+                                        Color.primary.opacity(0.75)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .shadow(
+                                color: isSelected ? .black.opacity(0.4) : .black.opacity(0.1),
+                                radius: isSelected ? 2 : 1,
+                                x: 0,
+                                y: 1
+                            )
+                            .scaleEffect(isSelected ? 1.08 : 1.0)
+                    }
                     .frame(width: soundButtonSize, height: soundButtonSize)
-                
-                Text(iconForSound(type))
-                    .font(.system(size: soundButtonIconSize, weight: .bold))
-                    .foregroundColor(selectedSoundType == type ? .white : textColorForCurrentTheme)
+                    .shadow(
+                        color: isSelected ? soundBackgroundColor(for: type).opacity(0.3) : .black.opacity(0.05),
+                        radius: isSelected ? 12 : 6,
+                        x: 0,
+                        y: isSelected ? 6 : 3
+                    )
+                }
+                .frame(width: soundButtonSize, height: soundButtonSize)
+
+                // Label with subtle glass effect
+                Text(type.displayName)
+                    .font(.system(.caption2, design: .default, weight: .medium))
+                    .foregroundStyle(
+                        selectedSoundType == type ?
+                        .primary : .secondary
+                    )
+                    .shadow(
+                        color: effectiveColorScheme == .dark ? .black.opacity(0.3) : .clear,
+                        radius: 1,
+                        x: 0,
+                        y: 0.5
+                    )
+                    .multilineTextAlignment(.center)
             }
         }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedSoundType == type)
         .accessibilityLabel("\(type.displayName) sound")
         .accessibilityHint("Select \(type.displayName.lowercased()) sound")
     }
@@ -553,7 +1019,7 @@ struct ContentView: View {
 
     // MARK: - Audio Control
     
-    /// Toggles between play and stop states with debouncing
+    /// Toggles between play and stop states with proper async handling
     private func togglePlayback() {
         guard !isTransitioning else { return }
         
@@ -565,193 +1031,82 @@ struct ContentView: View {
         
         isTransitioning = true
         
-        if isPlaying {
-            stopWhiteNoise()
-        } else {
-            playWhiteNoise()
+        // Cancel any existing audio task
+        audioTask?.cancel()
+        
+        // Use structured concurrency for audio operations
+        audioTask = Task { @MainActor in
+            if isPlaying {
+                await stopAudio()
+            } else {
+                await startAudio()
+            }
+            isTransitioning = false
         }
     }
     
-    /// Starts white noise generation with audio processing chain
-    private func playWhiteNoise() {
-        // Configure audio session for exclusive background playback (works in silent mode and background)
+    /// Starts audio with proper async handling and error recovery
+    @MainActor
+    private func startAudio() async {
         do {
+            // Configure audio session
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [])
+            try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try audioSession.setActive(true)
+            
+            // Initialize brown noise filter to prevent initial click
+            if selectedSoundType == .brown && brownNoiseFilter == 0.0 {
+                brownNoiseFilter = Float.random(in: -0.05...0.05)
+            }
+            
+            // Use preloaded player for MP3 files
+            if let player = preloadedPlayers[selectedSoundType] {
+                await playMPAudio(player: player)
+            } else {
+                // Use audio engine for generated sounds
+                try await playGeneratedAudio()
+            }
+            
+            // Update UI state
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPlaying = true
+            }
+            
         } catch {
-            print("Audio session configuration error: \(error.localizedDescription)")
+            print("Audio start error: \(error.localizedDescription)")
+            isPlaying = false
         }
+    }
+    
+    /// Plays MP3 audio using preloaded AVAudioPlayer with async handling
+    private func playMPAudio(player: AVAudioPlayer) async {
+        // Stop any current audio first
+        await stopAudioSilently()
         
-        // Ensure selectedSoundType reflects what's actually being played
-        // This ensures the menu button shows as active even if menu was never opened
+        // Configure and start the player
+        currentAudioPlayer = player
+        currentAudioPlayer?.numberOfLoops = -1 // Infinite loop
+        currentAudioPlayer?.currentTime = 0
+        currentAudioPlayer?.play()
+    }
+    
+    /// Plays generated audio using AVAudioEngine with async handling
+    private func playGeneratedAudio() async throws {
+        // Stop any current audio first
+        await stopAudioSilently()
         
-        // Handle MP3 audio files
-        if selectedSoundType == .fire {
-            playFireAudio()
-            return
-        }
-        
-        if selectedSoundType == .rain {
-            playRainAudio()
-            return
-        }
-        
-        if selectedSoundType == .birds {
-            playBirdsAudio()
-            return
-        }
-        
-        // Handle other sounds with audio engine
         let engine = AVAudioEngine()
         let noiseNode = createWhiteNoiseNode()
         let lowPassFilter = createLowPassFilter()
         
         setupAudioChain(engine: engine, noiseNode: noiseNode, filter: lowPassFilter)
         
-        do {
-            try engine.start()
-            audioEngine = engine
-            whiteNoiseNode = noiseNode
-            
-            // Set playing state immediately for smooth UI feedback
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying = true
-            }
-            
-            fadeIn(engine.mainMixerNode) {
-                self.isTransitioning = false
-                self.isSoundTransitioning = false
-            }
-        } catch {
-            print("Audio engine error: \(error.localizedDescription)")
-            isPlaying = false
-            isTransitioning = false
-            isSoundTransitioning = false
-        }
+        try engine.start()
+        audioEngine = engine
+        whiteNoiseNode = noiseNode
     }
     
-    /// Plays fire audio using preloaded AVAudioPlayer for instant playback
-    private func playFireAudio() {
-        guard let player = preloadedFirePlayer else {
-            print("Preloaded fire audio player not available")
-            isPlaying = false
-            isTransitioning = false
-            return
-        }
-        
-        // Use the preloaded player as the active player
-        fireAudioPlayer = player
-        fireAudioPlayer?.numberOfLoops = -1 // Infinite loop
-        
-        // Set playing state immediately for smooth UI feedback
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isPlaying = true
-        }
-        
-        // Start playback immediately to avoid hangs
-        fireAudioPlayer?.play()
-        isTransitioning = false
-        
-        // Set random position after playback has started to avoid blocking
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let audioPlayer = self.fireAudioPlayer else { return }
-            
-            // Small delay to ensure playback has started
-            Thread.sleep(forTimeInterval: 0.1)
-            
-            let duration = audioPlayer.duration
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
-                
-                DispatchQueue.main.async {
-                    audioPlayer.currentTime = randomStart
-                }
-            }
-        }
-    }
-    
-    /// Plays rain audio using preloaded AVAudioPlayer for instant playback
-    private func playRainAudio() {
-        guard let player = preloadedRainPlayer else {
-            print("Preloaded rain audio player not available")
-            isPlaying = false
-            isTransitioning = false
-            return
-        }
-        
-        // Use the preloaded player as the active player
-        rainAudioPlayer = player
-        rainAudioPlayer?.numberOfLoops = -1 // Infinite loop
-        
-        // Set playing state immediately for smooth UI feedback
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isPlaying = true
-        }
-        
-        // Start playback immediately to avoid hangs
-        rainAudioPlayer?.play()
-        isTransitioning = false
-        
-        // Set random position after playback has started to avoid blocking
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let audioPlayer = self.rainAudioPlayer else { return }
-            
-            // Small delay to ensure playback has started
-            Thread.sleep(forTimeInterval: 0.1)
-            
-            let duration = audioPlayer.duration
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
-                
-                DispatchQueue.main.async {
-                    audioPlayer.currentTime = randomStart
-                }
-            }
-        }
-    }
-    
-    /// Plays birds audio using preloaded AVAudioPlayer for instant playback
-    private func playBirdsAudio() {
-        guard let player = preloadedBirdsPlayer else {
-            print("Preloaded birds audio player not available")
-            isPlaying = false
-            isTransitioning = false
-            return
-        }
-        
-        // Use the preloaded player as the active player
-        birdsAudioPlayer = player
-        birdsAudioPlayer?.numberOfLoops = -1 // Infinite loop
-        
-        // Set playing state immediately for smooth UI feedback
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isPlaying = true
-        }
-        
-        // Start playback immediately to avoid hangs
-        birdsAudioPlayer?.play()
-        isTransitioning = false
-        
-        // Set random position after playback has started to avoid blocking
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let audioPlayer = self.birdsAudioPlayer else { return }
-            
-            // Small delay to ensure playback has started
-            Thread.sleep(forTimeInterval: 0.1)
-            
-            let duration = audioPlayer.duration
-            if duration > 0 {
-                let randomStart = TimeInterval.random(in: 0...(duration * 0.9))
-                
-                DispatchQueue.main.async {
-                    audioPlayer.currentTime = randomStart
-                }
-            }
-        }
-    }
-    
-    /// Creates audio source node for noise generation based on current type
+    /// Creates optimized audio source node for noise generation (Performance Critical)
     private func createWhiteNoiseNode() -> AVAudioSourceNode {
         AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let bufferListPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -759,46 +1114,56 @@ struct ContentView: View {
             for buffer in bufferListPointer {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
                 
-                // Single sound - consistent gain level
                 let finalGain: Float = 0.8
+                let frameCountInt = Int(frameCount)
+                let soundType = self.selectedSoundType
                 
-                for frame in 0..<Int(frameCount) {
-                    var output: Float = 0.0
-                    self.frameCounter += 1
-                    
-                    // Generate sound based on selected type - single sound only
-                    // Note: Fire sound is handled separately with AVAudioPlayer
-                    switch self.selectedSoundType {
-                    case .white:
-                        output = Float.random(in: -0.5...0.5)
-                    case .brown:
-                        let whiteNoise = Float.random(in: -0.5...0.5)
-                        self.brownNoiseFilter1 += 0.1 * (whiteNoise - self.brownNoiseFilter1)
-                        output = self.brownNoiseFilter1 * 1.8
-                    case .fire:
-                        // Fire sound is handled by AVAudioPlayer - this should not be called
-                        output = 0.0
-                    case .rain:
-                        // Rain sound is handled by AVAudioPlayer - this should not be called
-                        output = 0.0
-                    case .birds:
-                        // Birds sound is handled by AVAudioPlayer - this should not be called
-                        output = 0.0
+                switch soundType {
+                case .white:
+                    // Optimized white noise generation
+                    for frame in 0..<frameCountInt {
+                        data[frame] = Float.random(in: -0.4...0.4) * finalGain
                     }
                     
-                    // Efficient clamping and final output
-                    data[frame] = max(-0.9, min(0.9, output)) * finalGain
+                case .brown:
+                    // Simplified brown noise - reduce computational load
+                    let filterCoeff: Float = 0.02
+                    let gainComp: Float = 3.5
+                    
+                    for frame in 0..<frameCountInt {
+                        let noise = Float.random(in: -0.3...0.3)
+                        self.brownNoiseFilter += filterCoeff * (noise - self.brownNoiseFilter)
+                        data[frame] = min(max(self.brownNoiseFilter * gainComp, -1.0), 1.0) * finalGain
+                    }
+                    
+                default:
+                    // Fill with silence for MP3-handled sounds
+                    for frame in 0..<frameCountInt {
+                        data[frame] = 0.0
+                    }
                 }
+                
+                self.frameCounter += frameCountInt
             }
             return noErr
         }
     }
     
-    /// Creates low-pass filter to reduce harsh frequencies
+    /// Creates optimized low-pass filter to reduce harsh frequencies
     private func createLowPassFilter() -> AVAudioUnitEQ {
         let filter = AVAudioUnitEQ(numberOfBands: 1)
         filter.bands[0].filterType = .lowPass
-        filter.bands[0].frequency = 1000
+        
+        // Adaptive filter frequency based on sound type
+        switch selectedSoundType {
+        case .white:
+            filter.bands[0].frequency = 8000  // Allow more brightness for white noise
+        case .brown:
+            filter.bands[0].frequency = 4000  // Warmer for brown noise
+        default:
+            filter.bands[0].frequency = 6000  // Default
+        }
+        
         filter.bands[0].bypass = false
         return filter
     }
@@ -811,120 +1176,64 @@ struct ContentView: View {
         engine.connect(filter, to: engine.mainMixerNode, format: nil)
     }
 
-    /// Stops white noise with fade-out effect
-    private func stopWhiteNoise() {
-        // Set stopped state immediately for smooth UI feedback
+    /// Stops audio with proper async handling
+    @MainActor
+    private func stopAudio() async {
+        // Update UI state
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying = false
         }
         
-        stopAudioWithoutUIUpdate()
+        await stopAudioSilently()
     }
     
-    /// Stops audio without updating UI state (for sound switching)
-    private func stopAudioWithoutUIUpdate() {
-        // Stop MP3 audio players if they're playing
-        if let firePlayer = fireAudioPlayer {
-            firePlayer.stop()
-            fireAudioPlayer = nil
-            isTransitioning = false
-            
-            // Don't deactivate audio session - let system manage it
-            return
+    /// Stops audio without updating UI state (for internal use)
+    private func stopAudioSilently() async {
+        // Stop current audio player
+        if let player = currentAudioPlayer {
+            player.stop()
+            currentAudioPlayer = nil
         }
         
-        if let rainPlayer = rainAudioPlayer {
-            rainPlayer.stop()
-            rainAudioPlayer = nil
-            isTransitioning = false
-            
-            // Don't deactivate audio session - let system manage it
-            return
-        }
-        
-        if let birdsPlayer = birdsAudioPlayer {
-            birdsPlayer.stop()
-            birdsAudioPlayer = nil
-            isTransitioning = false
-            
-            // Don't deactivate audio session - let system manage it
-            return
-        }
-        
-        // Stop audio engine for other sounds
-        guard let engine = audioEngine else { 
-            isTransitioning = false
-            return 
-        }
-        
-        fadeOut(engine.mainMixerNode) {
+        // Stop audio engine
+        if let engine = audioEngine {
             engine.stop()
             audioEngine = nil
             whiteNoiseNode = nil
-            isTransitioning = false
-            
-            // Deactivate audio session when stopping to save battery
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            } catch {
-                print("Audio session deactivation error: \(error.localizedDescription)")
-            }
         }
     }
 
-    // MARK: - Audio Fading
+    // MARK: - Resource Cleanup
     
-    /// Gradually increases volume from 0 to system volume
-    private func fadeIn(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 0.3, completion: (() -> Void)? = nil) {
-        performFade(mixerNode: mixerNode, duration: duration, startVolume: 0.0, endVolume: 1.0, completion: completion)
-    }
-
-    /// Gradually decreases volume to 0 then executes completion
-    private func fadeOut(_ mixerNode: AVAudioMixerNode, duration: TimeInterval = 0.1, completion: @escaping () -> Void) {
-        let currentVolume = mixerNode.outputVolume
-        performFade(mixerNode: mixerNode, duration: duration, startVolume: currentVolume, endVolume: 0.0, completion: completion)
-    }
-    
-    /// Core fade implementation with configurable start/end volumes
-    private func performFade(mixerNode: AVAudioMixerNode, duration: TimeInterval, startVolume: Float, endVolume: Float, completion: (() -> Void)? = nil) {
-        fadeTimer?.invalidate()
+    /// Comprehensive cleanup of all audio resources
+    private func cleanupAllResources() {
+        // Cancel all tasks
+        audioTask?.cancel()
+        screenDimTask?.cancel()
         
-        // Capture current volume before any changes to ensure smooth transition
-        let actualStartVolume = mixerNode.outputVolume
+        // Stop all audio
+        currentAudioPlayer?.stop()
+        currentAudioPlayer = nil
         
-        // If we're very close to the target, just set it directly to avoid micro-fades
-        if abs(actualStartVolume - endVolume) < 0.01 {
-            mixerNode.outputVolume = endVolume
-            completion?()
-            return
+        audioEngine?.stop()
+        audioEngine = nil
+        whiteNoiseNode = nil
+        
+        // Deactivate audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false)
+        } catch {
+            print("Audio session deactivation error: \(error.localizedDescription)")
         }
         
-        let fadeSteps = 20
-        let stepDuration = duration / Double(fadeSteps)
-        let volumeDelta = (endVolume - actualStartVolume) / Float(fadeSteps)
-        
-        // Don't immediately set volume - use current volume as true starting point
-        
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: stepDuration, repeats: true) { timer in
-            mixerNode.outputVolume += volumeDelta
-            
-            // Clamp volume to valid range to prevent audio artifacts
-            mixerNode.outputVolume = max(0.0, min(1.0, mixerNode.outputVolume))
-            
-            let isComplete = volumeDelta > 0 ? mixerNode.outputVolume >= endVolume : mixerNode.outputVolume <= endVolume
-            
-            if isComplete {
-                mixerNode.outputVolume = endVolume
-                timer.invalidate()
-                completion?()
-            }
-        }
+        // Re-enable screen timeout
+        UIApplication.shared.isIdleTimerDisabled = false
     }
 
     
     // MARK: - Theme Actions
     
-    /// Toggles between light and dark theme modes
+    /// Cycles through system, light, and dark theme modes
     private func cycleThemeMode() {
         // Record user interaction for screen dimming
         recordUserInteraction()
@@ -932,10 +1241,12 @@ struct ContentView: View {
         triggerLightHapticFeedback()
         
         switch themeMode {
+        case .system:
+            themeMode = .light
         case .light:
             themeMode = .dark
         case .dark:
-            themeMode = .light
+            themeMode = .system
         }
     }
     
@@ -952,68 +1263,31 @@ struct ContentView: View {
         }
     }
     
-    /// Selects sound type - only one at a time with debouncing
+    /// Selects sound type with instant UI feedback and async audio handling
     private func selectSound(_ type: SoundType) {
-        // Prevent rapid button mashing
-        guard selectedSoundType != type && !isSoundTransitioning else { return }
+        // Only prevent if same sound type
+        guard selectedSoundType != type else { return }
         
         // Record user interaction for screen dimming
         recordUserInteraction()
         
         triggerLightHapticFeedback()
         
-        // Set transitioning flag immediately
-        isSoundTransitioning = true
+        // Update UI immediately for instant feedback
         selectedSoundType = type
         
         // Update Now Playing info with new sound type
         updateNowPlayingInfo()
         
-        // If audio is playing, restart with new sound
+        // If audio is playing, restart with new sound using async
         if isPlaying {
-            restartAudioWithCurrentSettings()
-        } else {
-            // Reset transitioning flag immediately if not playing
-            isSoundTransitioning = false
-        }
-    }
-    
-    /// Restarts audio with current sound settings
-    private func restartAudioWithCurrentSettings() {
-        // Check if we're currently using MP3 audio players
-        let wasUsingMp3Audio = (fireAudioPlayer != nil || rainAudioPlayer != nil || birdsAudioPlayer != nil)
-        let willUseMp3Audio = (selectedSoundType == .fire || selectedSoundType == .rain || selectedSoundType == .birds)
-        
-        // For same audio system (generated to generated), just reset state
-        if !wasUsingMp3Audio && !willUseMp3Audio {
-            // Reset all filter states immediately for clean transition
-            brownNoiseFilter1 = 0.0
-            birdCallTimer = 0
-            birdCallIntensity = 0.0
-            birdCallFilter = 0.0
-            secondBirdTimer = 0
-            secondBirdIntensity = 0.0
-            thirdBirdTimer = 0
-            thirdBirdIntensity = 0.0
-            birdSpeciesSwitch = 0
-            insectChirpTimer = 0
-            frameCounter = 0
-            windGustPhase = 0.0
+            // Cancel any existing audio task
+            audioTask?.cancel()
             
-            // Clear transition flag immediately for generated sounds
-            isSoundTransitioning = false
-            return
-        }
-        
-        // For switching between audio systems (generated ↔ MP3)
-        // Stop current audio without changing UI state
-        stopAudioWithoutUIUpdate()
-        
-        // Minimal delay for clean transition
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            self.playWhiteNoise()
-            // Clear transition flag after restart
-            self.isSoundTransitioning = false
+            audioTask = Task { @MainActor in
+                await stopAudioSilently()
+                await startAudio()
+            }
         }
     }
     
@@ -1033,41 +1307,29 @@ struct ContentView: View {
     
     // MARK: - Audio Preloading
     
-    /// Preloads all MP3 audio files to prevent hitches when switching sounds
+    /// Efficiently preloads MP3 audio files to prevent hitches
     private func preloadAudioFiles() {
-        // Preload fire audio
-        if let path = Bundle.main.path(forResource: "fire", ofType: "mp3") {
-            let url = URL(fileURLWithPath: path)
-            do {
-                preloadedFirePlayer = try AVAudioPlayer(contentsOf: url)
-                preloadedFirePlayer?.prepareToPlay()
-                preloadedFirePlayer?.volume = 0.8
-            } catch {
-                print("Failed to preload fire audio: \(error.localizedDescription)")
-            }
-        }
+        let audioFiles: [(SoundType, String, Float)] = [
+            (.fire, "fire", 0.8),
+            (.rain, "rain", 0.4),
+            (.birds, "birdsounds", 0.6)
+        ]
         
-        // Preload rain audio
-        if let path = Bundle.main.path(forResource: "rain", ofType: "mp3") {
-            let url = URL(fileURLWithPath: path)
-            do {
-                preloadedRainPlayer = try AVAudioPlayer(contentsOf: url)
-                preloadedRainPlayer?.prepareToPlay()
-                preloadedRainPlayer?.volume = 0.4
-            } catch {
-                print("Failed to preload rain audio: \(error.localizedDescription)")
+        for (soundType, filename, volume) in audioFiles {
+            guard let path = Bundle.main.path(forResource: filename, ofType: "mp3") else {
+                print("Audio file not found: \(filename).mp3")
+                continue
             }
-        }
-        
-        // Preload birds audio
-        if let path = Bundle.main.path(forResource: "birdsounds", ofType: "mp3") {
+            
             let url = URL(fileURLWithPath: path)
             do {
-                preloadedBirdsPlayer = try AVAudioPlayer(contentsOf: url)
-                preloadedBirdsPlayer?.prepareToPlay()
-                preloadedBirdsPlayer?.volume = 0.6
+                let player = try AVAudioPlayer(contentsOf: url)
+                player.prepareToPlay()
+                player.volume = volume
+                player.enableRate = false
+                preloadedPlayers[soundType] = player
             } catch {
-                print("Failed to preload birds audio: \(error.localizedDescription)")
+                print("Failed to preload \(filename) audio: \(error.localizedDescription)")
             }
         }
     }
@@ -1083,14 +1345,17 @@ struct ContentView: View {
     
     /// Updates screen dimming behavior when playback state changes
     private func updateScreenDimming(isPlaying: Bool) {
+        print("DEBUG: updateScreenDimming called with isPlaying: \(isPlaying)")
         if isPlaying {
             // When audio starts, prevent immediate dimming but allow delayed dimming
+            print("DEBUG: Audio started - resetting screen dim timer")
             resetScreenDimTimer()
         } else {
             // When audio stops, return to normal system dimming
+            print("DEBUG: Audio stopped - returning to normal screen dimming")
             DispatchQueue.main.async {
                 UIApplication.shared.isIdleTimerDisabled = false
-                self.screenDimTimer?.invalidate()
+                print("DEBUG: Screen timeout enabled immediately (audio stopped)")
             }
         }
     }
@@ -1098,30 +1363,36 @@ struct ContentView: View {
     /// Records user interaction and resets screen dim timer
     private func recordUserInteraction() {
         lastUserInteraction = Date()
+        print("DEBUG: User interaction recorded, isPlaying: \(isPlaying)")
         
         // If audio is playing, reset the dimming timer
         if isPlaying {
+            print("DEBUG: Audio is playing - resetting screen dim timer due to user interaction")
             resetScreenDimTimer()
         }
     }
     
-    /// Resets screen dim timer following Apple's recommendations
+    /// Resets screen dim timer using structured concurrency
     private func resetScreenDimTimer() {
-        // Ensure we're on the main thread for UI updates and timer creation
-        DispatchQueue.main.async {
-            // Cancel existing timer
-            self.screenDimTimer?.invalidate()
-            
-            // Prevent immediate dimming
-            UIApplication.shared.isIdleTimerDisabled = true
-            
-            // Apple's recommendation: 30 seconds of inactivity before allowing screen to dim
-            // This balances user experience with battery life
-            self.screenDimTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { _ in
-                // After 30 seconds of inactivity, allow system to dim screen
-                DispatchQueue.main.async {
-                    UIApplication.shared.isIdleTimerDisabled = false
+        // Cancel existing task
+        screenDimTask?.cancel()
+        
+        // Prevent immediate dimming
+        UIApplication.shared.isIdleTimerDisabled = true
+        print("DEBUG: Screen timeout disabled - preventing dimming for 30 seconds")
+        
+        // Use structured concurrency for reliable execution
+        screenDimTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(30))
+                await MainActor.run {
+                    if !Task.isCancelled {
+                        UIApplication.shared.isIdleTimerDisabled = false
+                        print("DEBUG: Screen timeout re-enabled - allowing system dimming")
+                    }
                 }
+            } catch {
+                // Task was cancelled, which is expected behavior
             }
         }
     }
