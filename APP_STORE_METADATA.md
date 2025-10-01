@@ -19,14 +19,19 @@
 Not required (no data collection)
 
 ### Categories
-- **Primary**: Health & Fitness
-- **Secondary**: Productivity
+- **Primary**: Productivity
+- **Secondary**: Health & Fitness
+
+**Rationale**: Positioned as a focus/concentration tool first (inspired by Craig Mod's fast software philosophy), sleep aid second. Productivity category has 2x higher conversion rate (59.7% vs 30.8%) and better aligns with "No-BS" professional branding and Liquid Glass premium design.
 
 ### Age Rating
 **4+** (No objectionable content)
 
 ### Price
-**Free** (No ads, no in-app purchases, no subscriptions)
+**Paid** - One-time purchase
+- **Recommended Price**: $2.99 - $4.99
+- No ads, no in-app purchases, no subscriptions
+- Premium pricing justified by: Liquid Glass design, no tracking, professional focus tool
 
 ---
 
@@ -56,7 +61,7 @@ Built for iOS 26 with Apple's revolutionary Liquid Glass design system. Every in
 
 This app harkens back to a time when software could be built for a single purpose and be fast, simple, and lightweight. Inspired by Craig Mod's philosophy on fast software, it prioritizes speed and simplicity over feature bloat.
 
-No tracking. No analytics. No subscriptions. No BS.
+No tracking. No analytics. No ads. No BS. Just one fair price.
 
 **TECHNICAL HIGHLIGHTS**
 
@@ -133,7 +138,7 @@ This is a simple white noise app for focus and sleep. No account required.
 7. Test Control Center integration while playing
 
 The app works in silent mode and continues playing in background.
-No purchases, no tracking, no account needed.
+One-time purchase, no subscriptions, no tracking, no account needed.
 
 ---
 
