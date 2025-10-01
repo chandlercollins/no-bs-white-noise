@@ -54,3 +54,30 @@ Software should **lessen burdens, not increase them**. This app:
 - Gets out of your way so you can focus on what matters
 
 Built for people who value their time and attention.
+
+## Privacy
+
+**No-BS White Noise does not collect, store, or transmit any user data.**
+
+### What We Don't Do:
+- ❌ No tracking or analytics
+- ❌ No user accounts or authentication
+- ❌ No data collection of any kind
+- ❌ No third-party SDKs or frameworks
+- ❌ No advertising networks
+- ❌ No crash reporting services
+- ❌ No network requests (except standard iOS system calls)
+
+### What the App Does:
+- ✅ Generates audio locally on your device
+- ✅ Plays audio files bundled with the app
+- ✅ Stores your sound and theme preferences locally on your device only
+- ✅ Integrates with iOS Control Center (standard iOS API)
+- ✅ Uses background audio playback (standard iOS capability)
+
+### Permissions:
+The app does not request any permissions beyond standard audio playback.
+
+**Your privacy is 100% protected because we simply don't collect anything.**
+
+For questions, contact: chndlrcllns@gmail.com
