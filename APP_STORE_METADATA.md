@@ -28,10 +28,20 @@ Not required (no data collection)
 **4+** (No objectionable content)
 
 ### Price
-**Paid** - One-time purchase
-- **Recommended Price**: $2.99 - $4.99
+**$2.99 (Tier 3)** - One-time purchase
+
+**Rationale** (see [PRICING_ANALYSIS.md](PRICING_ANALYSIS.md) for full analysis):
+- Optimal balance: Premium positioning without price resistance
+- Market gap: Undercuts $40-70/year subscriptions, 3x premium vs $0.99 commodity apps
+- Expected conversion: 40-50% (Productivity category: 59.7% average)
+- Revenue per download: $2.09 (after Apple's 30% cut)
+- Charm pricing: $2.99 vs $3.00 yields 5-15% conversion boost
 - No ads, no in-app purchases, no subscriptions
 - Premium pricing justified by: Liquid Glass design, no tracking, professional focus tool
+
+**Alternative scenarios:**
+- Conservative: $1.99 (max penetration, -33% revenue per download)
+- Aggressive: $3.99 (max revenue, -15% estimated conversion)
 
 ---
 
