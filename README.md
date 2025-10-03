@@ -81,3 +81,45 @@ The app does not request any permissions beyond standard audio playback.
 **Your privacy is 100% protected because we simply don't collect anything.**
 
 For questions, contact: chndlrcllns@gmail.com
+
+## Roadmap
+
+We're committed to keeping this app lightweight and focused while adding thoughtful improvements over time. Here's what's coming:
+
+### Coming Soon
+
+**Home Screen Widget**
+Launch your preferred sound instantly from the home screen without opening the app. Perfect for quick access when you need to focus.
+
+**Sleep Timer**
+Set the app to automatically stop after a specified duration (15, 30, 60, 90, or 120 minutes). Ideal for falling asleep without draining your battery all night.
+
+**Settings Screen**
+A dedicated settings area for:
+- About & attribution information
+- Volume preferences per sound type
+- Default sound selection
+- Additional customization options
+
+### Future Considerations
+
+**Favorites & Quick Access**
+Mark your most-used sounds as favorites for even faster switching.
+
+**Background Playback Indicator**
+Subtle visual feedback when audio is playing in the background (while respecting the minimalist aesthetic).
+
+**Focus Mode Integration**
+Seamless integration with iOS Focus modes to automatically start your preferred sound.
+
+**Shortcuts Support**
+Full Siri Shortcuts integration for automation workflows.
+
+**Apple Watch Companion**
+Control playback directly from your wrist without pulling out your phone.
+
+---
+
+**Philosophy**: Every feature must earn its place by enhancing focus without adding complexity. If it doesn't serve the core mission—helping you concentrate—it doesn't belong.
+
+Have a suggestion? [Open an issue](https://github.com/YOUR_USERNAME/no-bs-white-noise/issues) and let's discuss.
