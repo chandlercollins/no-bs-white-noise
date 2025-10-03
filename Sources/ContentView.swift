@@ -1059,9 +1059,11 @@ struct ContentView: View {
     @MainActor
     private func startAudioQuick() async {
         do {
-            // Configure audio session
+            // Configure audio session for Now Playing / Control Center visibility
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            // Note: Removed .mixWithOthers to show in Now Playing/Control Center
+            // Future: Make this toggleable in settings to allow mixing with other audio
+            try audioSession.setCategory(.playback, mode: .default, options: [])
             try audioSession.setActive(true)
 
             // Initialize brown noise filter to prevent initial click
@@ -1090,9 +1092,11 @@ struct ContentView: View {
     @MainActor
     private func startAudio() async {
         do {
-            // Configure audio session
+            // Configure audio session for Now Playing / Control Center visibility
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            // Note: Removed .mixWithOthers to show in Now Playing/Control Center
+            // Future: Make this toggleable in settings to allow mixing with other audio
+            try audioSession.setCategory(.playback, mode: .default, options: [])
             try audioSession.setActive(true)
 
             // Initialize brown noise filter to prevent initial click
@@ -1455,7 +1459,7 @@ struct ContentView: View {
     /// Sets up Control Center and lock screen remote controls
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
-        
+
         // Enable play command
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { _ in
@@ -1464,8 +1468,8 @@ struct ContentView: View {
             }
             return .success
         }
-        
-        // Enable pause command  
+
+        // Enable pause command
         commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { _ in
             if self.isPlaying {
@@ -1473,13 +1477,56 @@ struct ContentView: View {
             }
             return .success
         }
-        
+
         // Enable toggle play/pause command
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { _ in
             self.togglePlayback()
             return .success
         }
+
+        // Enable next track command (cycle forward through sounds)
+        commandCenter.nextTrackCommand.isEnabled = true
+        commandCenter.nextTrackCommand.addTarget { _ in
+            self.cycleToNextSound()
+            return .success
+        }
+
+        // Enable previous track command (cycle backward through sounds)
+        commandCenter.previousTrackCommand.isEnabled = true
+        commandCenter.previousTrackCommand.addTarget { _ in
+            self.cycleToPreviousSound()
+            return .success
+        }
+
+        // Disable skip forward/backward (not applicable for continuous sounds)
+        commandCenter.skipForwardCommand.isEnabled = false
+        commandCenter.skipBackwardCommand.isEnabled = false
+
+        // Disable seek commands (not applicable for continuous sounds)
+        commandCenter.changePlaybackPositionCommand.isEnabled = false
+    }
+
+    /// Cycles to the next sound in the list
+    private func cycleToNextSound() {
+        let allSounds = SoundType.allCases
+        guard let currentIndex = allSounds.firstIndex(of: selectedSoundType) else { return }
+
+        let nextIndex = (currentIndex + 1) % allSounds.count
+        let nextSound = allSounds[nextIndex]
+
+        selectSound(nextSound)
+    }
+
+    /// Cycles to the previous sound in the list
+    private func cycleToPreviousSound() {
+        let allSounds = SoundType.allCases
+        guard let currentIndex = allSounds.firstIndex(of: selectedSoundType) else { return }
+
+        let previousIndex = (currentIndex - 1 + allSounds.count) % allSounds.count
+        let previousSound = allSounds[previousIndex]
+
+        selectSound(previousSound)
     }
     
     /// Updates Now Playing info for Control Center and lock screen
