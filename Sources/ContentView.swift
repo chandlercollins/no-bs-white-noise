@@ -262,6 +262,7 @@ struct ContentView: View {
                     .frame(width: playButtonSize * 1.2, height: playButtonSize * 1.2)
                     .blur(radius: 20)
                     .opacity(pulseAnimation ? 0.6 : 0.3)
+                    .animation(.easeInOut(duration: 0.25), value: isPlaying)
 
                 // Main glass button layers
                 ZStack {
@@ -277,6 +278,7 @@ struct ContentView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
+                        .animation(.easeInOut(duration: 0.25), value: isPlaying)
 
                     // Glass refraction layer
                     Circle()
@@ -328,26 +330,28 @@ struct ContentView: View {
                         )
                         .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
                         .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.5), radius: 8, x: 0, y: 0)
+                        .animation(.easeInOut(duration: 0.25), value: isPlaying)
                 }
                 .frame(width: playButtonSize, height: playButtonSize)
                 .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.3), radius: 20, x: 0, y: 10)
                 .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: 15)
+                .animation(.easeInOut(duration: 0.25), value: isPlaying)
                 .scaleEffect(pulseAnimation ? (isPlaying ? 1.03 : 1.02) : 1.0)
             }
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.5, dampingFraction: 0.75), value: isPlaying)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isPlaying)
         .animation(
             pulseAnimation ?
             .easeInOut(duration: isPlaying ? 1.2 : 2.5).repeatForever(autoreverses: true) :
-            .spring(response: 0.5, dampingFraction: 0.75),
+            .spring(response: 0.3, dampingFraction: 0.85),
             value: pulseAnimation
         )
         .onAppear {
             pulseAnimation = false
         }
         .onChange(of: isPlaying) { _, newValue in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                 self.pulseAnimation = newValue
             }
         }
@@ -1022,43 +1026,49 @@ struct ContentView: View {
     /// Toggles between play and stop states with proper async handling
     private func togglePlayback() {
         guard !isTransitioning else { return }
-        
+
         // Record user interaction for screen dimming
         recordUserInteraction()
-        
+
         // Provide haptic feedback for physical button feel
         triggerHapticFeedback()
-        
+
         isTransitioning = true
-        
+
+        // Update UI immediately for instant feedback (optimistic update)
+        let targetState = !isPlaying
+        withAnimation(.easeInOut(duration: 0.15)) {
+            isPlaying = targetState
+        }
+
         // Cancel any existing audio task
         audioTask?.cancel()
-        
+
         // Use structured concurrency for audio operations
         audioTask = Task { @MainActor in
-            if isPlaying {
-                await stopAudio()
+            if targetState {
+                await startAudioQuick()
             } else {
-                await startAudio()
+                await stopAudioQuick()
             }
             isTransitioning = false
         }
     }
     
-    /// Starts audio with proper async handling and error recovery
+    /// Starts audio with quick response (no UI update - already done optimistically)
     @MainActor
-    private func startAudio() async {
+    private func startAudioQuick() async {
         do {
             // Configure audio session
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try audioSession.setActive(true)
-            
+
             // Initialize brown noise filter to prevent initial click
             if selectedSoundType == .brown && brownNoiseFilter == 0.0 {
                 brownNoiseFilter = Float.random(in: -0.05...0.05)
             }
-            
+
             // Use preloaded player for MP3 files
             if let player = preloadedPlayers[selectedSoundType] {
                 await playMPAudio(player: player)
@@ -1066,12 +1076,43 @@ struct ContentView: View {
                 // Use audio engine for generated sounds
                 try await playGeneratedAudio()
             }
-            
+
+        } catch {
+            print("Audio start error: \(error.localizedDescription)")
+            // Revert UI on error
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isPlaying = false
+            }
+        }
+    }
+
+    /// Starts audio with proper async handling and error recovery (legacy method)
+    @MainActor
+    private func startAudio() async {
+        do {
+            // Configure audio session
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try audioSession.setActive(true)
+
+            // Initialize brown noise filter to prevent initial click
+            if selectedSoundType == .brown && brownNoiseFilter == 0.0 {
+                brownNoiseFilter = Float.random(in: -0.05...0.05)
+            }
+
+            // Use preloaded player for MP3 files
+            if let player = preloadedPlayers[selectedSoundType] {
+                await playMPAudio(player: player)
+            } else {
+                // Use audio engine for generated sounds
+                try await playGeneratedAudio()
+            }
+
             // Update UI state
             withAnimation(.easeInOut(duration: 0.2)) {
                 isPlaying = true
             }
-            
+
         } catch {
             print("Audio start error: \(error.localizedDescription)")
             isPlaying = false
@@ -1110,40 +1151,46 @@ struct ContentView: View {
     private func createWhiteNoiseNode() -> AVAudioSourceNode {
         AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
             let bufferListPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            
+
             for buffer in bufferListPointer {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
-                
+
                 let finalGain: Float = 0.8
                 let frameCountInt = Int(frameCount)
                 let soundType = self.selectedSoundType
-                
+
                 switch soundType {
                 case .white:
-                    // Optimized white noise generation
+                    // Ultra-optimized white noise - use direct pointer writes
+                    var rng = SystemRandomNumberGenerator()
                     for frame in 0..<frameCountInt {
-                        data[frame] = Float.random(in: -0.4...0.4) * finalGain
+                        // Avoid closure overhead by inlining random generation
+                        let randomValue = Float(rng.next()) / Float(UInt64.max) // 0 to 1
+                        data[frame] = (randomValue * 0.8 - 0.4) * finalGain // Scale to -0.4...0.4
                     }
-                    
+
                 case .brown:
-                    // Simplified brown noise - reduce computational load
+                    // Optimized brown noise - minimize operations per sample
                     let filterCoeff: Float = 0.02
                     let gainComp: Float = 3.5
-                    
+                    var filter = self.brownNoiseFilter
+                    var rng = SystemRandomNumberGenerator()
+
                     for frame in 0..<frameCountInt {
-                        let noise = Float.random(in: -0.3...0.3)
-                        self.brownNoiseFilter += filterCoeff * (noise - self.brownNoiseFilter)
-                        data[frame] = min(max(self.brownNoiseFilter * gainComp, -1.0), 1.0) * finalGain
+                        let randomValue = Float(rng.next()) / Float(UInt64.max)
+                        let noise = randomValue * 0.6 - 0.3 // Scale to -0.3...0.3
+                        filter += filterCoeff * (noise - filter)
+                        // Use clamp instead of min/max for better performance
+                        let sample = filter * gainComp
+                        data[frame] = (sample < -1.0 ? -1.0 : (sample > 1.0 ? 1.0 : sample)) * finalGain
                     }
-                    
+
+                    self.brownNoiseFilter = filter
+
                 default:
-                    // Fill with silence for MP3-handled sounds
-                    for frame in 0..<frameCountInt {
-                        data[frame] = 0.0
-                    }
+                    // Use memset for faster zeroing
+                    memset(data, 0, frameCountInt * MemoryLayout<Float>.stride)
                 }
-                
-                self.frameCounter += frameCountInt
             }
             return noErr
         }
@@ -1176,14 +1223,20 @@ struct ContentView: View {
         engine.connect(filter, to: engine.mainMixerNode, format: nil)
     }
 
-    /// Stops audio with proper async handling
+    /// Stops audio quickly (no UI update - already done optimistically)
+    @MainActor
+    private func stopAudioQuick() async {
+        await stopAudioSilently()
+    }
+
+    /// Stops audio with proper async handling (legacy method)
     @MainActor
     private func stopAudio() async {
         // Update UI state
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying = false
         }
-        
+
         await stopAudioSilently()
     }
     
