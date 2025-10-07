@@ -12,5 +12,9 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>PlaySoundIntent</string>
+	</array>
 </dict>
 </plist>

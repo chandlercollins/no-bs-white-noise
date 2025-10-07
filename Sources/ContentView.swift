@@ -114,12 +114,15 @@ struct ContentView: View {
         .onAppear {
             // Initialize screen management
             setupScreenManagement()
-            
+
             // Preload audio files to prevent hitches
             preloadAudioFiles()
-            
+
             // Set up remote control commands for Control Center
             setupRemoteCommandCenter()
+
+            // Setup Siri intent listener
+            setupSiriIntentListener()
             
             // Start handle pulse animation after a short delay to draw attention
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -1529,6 +1532,41 @@ struct ContentView: View {
         selectSound(previousSound)
     }
     
+    /// Sets up listener for Siri intent notifications
+    private func setupSiriIntentListener() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("PlaySoundFromSiri"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let userInfo = notification.userInfo,
+                  let soundTypeString = userInfo["soundType"] as? String else { return }
+
+            // Map sound type string to SoundType enum
+            let soundType: SoundType
+            switch soundTypeString.lowercased() {
+            case "white noise", "white":
+                soundType = .white
+            case "brown noise", "brown":
+                soundType = .brown
+            case "fire":
+                soundType = .fire
+            case "rain":
+                soundType = .rain
+            case "birds", "bird sounds":
+                soundType = .birds
+            default:
+                return
+            }
+
+            // Select the sound and start playing
+            self.selectSound(soundType)
+            if !self.isPlaying {
+                self.togglePlayback()
+            }
+        }
+    }
+
     /// Updates Now Playing info for Control Center and lock screen
     private func updateNowPlayingInfo() {
         var nowPlayingInfo = [String: Any]()
