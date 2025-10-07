@@ -87,15 +87,9 @@ struct WhiteNoiseShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: PlaySoundIntent(),
             phrases: [
-                "Play \(.applicationName)",
-                "Play white noise in \(.applicationName)",
-                "Play brown noise in \(.applicationName)",
-                "Play fire sounds in \(.applicationName)",
-                "Play rain sounds in \(.applicationName)",
-                "Play bird sounds in \(.applicationName)",
-                "Start white noise",
-                "Start brown noise",
-                "Play \(\.$soundType)"
+                "Play \(\.$soundType) in \(.applicationName)",
+                "Start \(\.$soundType) in \(.applicationName)",
+                "Play \(\.$soundType) on \(.applicationName)"
             ],
             shortTitle: "Play Sound",
             systemImageName: "speaker.wave.2.fill"
