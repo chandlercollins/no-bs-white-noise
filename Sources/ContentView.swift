@@ -59,6 +59,7 @@ struct ContentView: View {
     @State private var handlePulseAnimation = false
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
+    @Environment(\.colorScheme) private var systemColorScheme
     @State private var themeButtonOpacity: Double = 0.6
     @State private var selectedSoundType: SoundType = .white
     @State private var isMenuExpanded = false
@@ -131,6 +132,12 @@ struct ContentView: View {
         )
         .preferredColorScheme(preferredColorScheme)
         .onAppear {
+            // Set initial theme to match system on first launch
+            if UserDefaults.standard.object(forKey: "hasLaunchedBefore") == nil {
+                themeMode = systemColorScheme == .dark ? .dark : .light
+                UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+            }
+
             // Initialize screen management
             setupScreenManagement()
 
