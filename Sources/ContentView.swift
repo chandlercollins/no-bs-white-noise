@@ -110,6 +110,28 @@ struct ContentView: View {
                 menuOverlay
             }
         }
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { gesture in
+                    let verticalMovement = gesture.translation.height
+                    let horizontalMovement = abs(gesture.translation.width)
+
+                    // Only respond to primarily vertical swipes
+                    if abs(verticalMovement) > horizontalMovement {
+                        if verticalMovement < -50 && !isMenuExpanded {
+                            // Swipe up to open menu
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                isMenuExpanded = true
+                            }
+                        } else if verticalMovement > 50 && isMenuExpanded {
+                            // Swipe down to close menu
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                isMenuExpanded = false
+                            }
+                        }
+                    }
+                }
+        )
         .preferredColorScheme(preferredColorScheme)
         .onAppear {
             // Initialize screen management
