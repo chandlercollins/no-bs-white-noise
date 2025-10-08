@@ -469,16 +469,14 @@ struct ContentView: View {
     /// Returns the appropriate ColorScheme based on current theme mode
     private var preferredColorScheme: ColorScheme? {
         switch themeMode {
-        case .system: return nil  // Use system default
         case .light: return .light
         case .dark: return .dark
         }
     }
-    
+
     /// Returns the current effective color scheme
     private var effectiveColorScheme: ColorScheme {
         switch themeMode {
-        case .system: return systemColorScheme
         case .light: return .light
         case .dark: return .dark
         }
