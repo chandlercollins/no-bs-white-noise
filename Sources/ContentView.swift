@@ -59,16 +59,15 @@ struct ContentView: View {
     @State private var handlePulseAnimation = false
     @State private var isTransitioning = false
     @State private var themeMode: ThemeMode = .light
-    @Environment(\.colorScheme) private var systemColorScheme
     @State private var themeButtonOpacity: Double = 0.6
     @State private var selectedSoundType: SoundType = .white
     @State private var isMenuExpanded = false
     @State private var lastUserInteraction: Date = Date()
-    
+
     // MARK: - Task Management
     @State private var audioTask: Task<Void, Never>?
     @State private var screenDimTask: Task<Void, Error>?
-    
+
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
