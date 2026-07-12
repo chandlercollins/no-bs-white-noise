@@ -5,6 +5,21 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-12 — Follow-up session (post-merge)
+- **Merged to main + tagged v2.1**; branches cleaned; caffeinate killed.
+- **AudioEngine refactor merged (PR #2)**: render-thread data race fixed, view is
+  presentation-only, 15/15 tests green.
+- **README refreshed**: "Recently Shipped v2.1" section (sleep timer/volume/fades were
+  listed as Coming Soon); roadmap now shows widgets + sound mixing next, Mac added.
+- **New: "Set Sleep Timer" Siri/Shortcuts intent** (SetSleepTimerIntent, 1–720 min) wired
+  through the same notification pattern as PlaySoundIntent. Build + tests green.
+  Runtime Siri invocation is pattern-identical to the proven play intent — include
+  "Hey Siri, set a sleep timer in White Noise" in morning QA.
+- **iPad landscape**: scripted sim rotation blocked by macOS accessibility permissions —
+  add a 30-second landscape spot-check to morning QA.
+
+---
+
 ## 2026-07-11 — Cycle 6: P4 complete — QUEUE FINISHED 🏁 (loop stopped)
 - **P4a — test target ✅:** hand-wired a unit-test target (synchronized `Tests/` group,
   hosted in the app) + scheme TestAction. 8 launch-compliance smoke tests — enums, privacy

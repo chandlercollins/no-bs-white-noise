@@ -80,6 +80,31 @@ struct SoundTypeQuery: EntityQuery {
     }
 }
 
+/// App Intent for arming the sleep timer via Siri/Shortcuts
+@available(iOS 16.0, *)
+struct SetSleepTimerIntent: AppIntent {
+    static var title: LocalizedStringResource = "Set Sleep Timer"
+    static var description = IntentDescription("Stop playback after a number of minutes, with a gentle fade-out")
+
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Minutes", inclusiveRange: (1, 720))
+    var minutes: Int
+
+    func perform() async throws -> some IntentResult {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("SetSleepTimerFromSiri"),
+            object: nil,
+            userInfo: ["minutes": minutes]
+        )
+        return .result()
+    }
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Set sleep timer for \(\.$minutes) minutes")
+    }
+}
+
 /// App Shortcuts for common voice commands
 @available(iOS 16.0, *)
 struct WhiteNoiseShortcuts: AppShortcutsProvider {
@@ -93,6 +118,15 @@ struct WhiteNoiseShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Play Sound",
             systemImageName: "speaker.wave.2.fill"
+        )
+        AppShortcut(
+            intent: SetSleepTimerIntent(),
+            phrases: [
+                "Set a sleep timer in \(.applicationName)",
+                "Set a sleep timer on \(.applicationName)"
+            ],
+            shortTitle: "Sleep Timer",
+            systemImageName: "moon.zzz.fill"
         )
     }
 }

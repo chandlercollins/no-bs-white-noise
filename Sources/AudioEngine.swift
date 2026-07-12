@@ -505,6 +505,17 @@ final class AudioEngine {
                 }
             }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("SetSleepTimerFromSiri"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let minutes = notification.userInfo?["minutes"] as? Int, minutes > 0 else { return }
+            Task { @MainActor [weak self] in
+                self?.setSleepTimer(minutes)
+            }
+        }
     }
 
     private func observeInterruptions() {

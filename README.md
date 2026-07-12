@@ -107,37 +107,36 @@ For questions, contact: chndlrcllns@gmail.com
 
 We're committed to keeping this app lightweight and focused while adding thoughtful improvements over time. Here's what's coming:
 
+### Recently Shipped (v2.1)
+
+- ✅ **Sleep Timer** — auto-stop with a gentle fade-out (15 min to 2 hours), live countdown
+- ✅ **Volume Control** — master volume slider, right in the sounds drawer
+- ✅ **Fade In/Out** — click-free, gentle starts and stops
+- ✅ **Siri & Shortcuts** — start any sound or set a sleep timer by voice
+- ✅ **Control Center & Lock Screen** — full playback controls
+- ✅ **Real iOS 26 Liquid Glass** — the genuine system material throughout
+
 ### Coming Soon
 
 **Home Screen Widget**
-Launch your preferred sound instantly from the home screen without opening the app. Perfect for quick access when you need to focus.
+Launch your preferred sound instantly from the home screen without opening the app.
 
-**Sleep Timer**
-Set the app to automatically stop after a specified duration (15, 30, 60, 90, or 120 minutes). Ideal for falling asleep without draining your battery all night.
-
-**Settings Screen**
-A dedicated settings area for:
-- About & attribution information
-- Volume preferences per sound type
-- Default sound selection
-- Additional customization options
+**Sound Mixing**
+Layer sounds together (Rain + Fire, anyone?) — the new audio engine was built with this in mind.
 
 ### Future Considerations
 
 **Favorites & Quick Access**
 Mark your most-used sounds as favorites for even faster switching.
 
-**Background Playback Indicator**
-Subtle visual feedback when audio is playing in the background (while respecting the minimalist aesthetic).
-
 **Focus Mode Integration**
 Seamless integration with iOS Focus modes to automatically start your preferred sound.
 
-**Shortcuts Support**
-Full Siri Shortcuts integration for automation workflows.
-
 **Apple Watch Companion**
 Control playback directly from your wrist without pulling out your phone.
+
+**Mac Support**
+Bring the same fast, focused experience to the desktop.
 
 ---
 

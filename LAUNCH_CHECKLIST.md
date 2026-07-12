@@ -15,7 +15,8 @@ verified on branch `overnight/launch-prep` (draft PR #1). Est. total: ~45 min.
 - [ ] Drag the volume slider while playing — live change, no glitches
 - [ ] Arm a 15-min sleep timer, confirm chip + countdown; optionally wait it out → 3s fade to stop
 - [ ] Control Center: play/pause + next/prev sound works; Now Playing shows title + artwork
-- [ ] Siri: "Play rain in White Noise"
+- [ ] Siri: "Play rain in White Noise" and "Set a sleep timer in White Noise"
+- [ ] iPad: rotate to landscape once — confirm layout holds (30 seconds)
 
 ## 3. Archive & upload (~10 min, needs your Apple ID in Xcode)
 - [ ] Xcode → open project → select "Any iOS Device (arm64)"
