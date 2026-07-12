@@ -355,7 +355,7 @@ struct ContentView: View {
                 .accessibilityLabel("Sleep timer running")
             }
         }
-        .frame(height: 36)
+        .frame(minHeight: 36)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: audio.sleepTimerEndDate != nil)
     }
 
