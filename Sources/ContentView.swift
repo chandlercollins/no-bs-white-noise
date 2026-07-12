@@ -67,6 +67,14 @@ struct ContentView: View {
     @State private var audioTask: Task<Void, Never>?
     @State private var screenDimTask: Task<Void, Error>?
 
+    // MARK: - Sleep Timer
+    @State private var sleepTimerTask: Task<Void, Never>?
+    @State private var sleepTimerEndDate: Date?
+    @State private var sleepTimerMinutes: Int?
+
+    /// Sleep timer choices, in minutes. `nil` represents "Off".
+    private static let sleepTimerOptions: [Int] = [15, 30, 45, 60, 90, 120]
+
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -90,8 +98,9 @@ struct ContentView: View {
                 Spacer()
                 
                 // Main content
-                VStack(spacing: mainVerticalSpacing) {
+                VStack(spacing: 20) {
                     playStopButton
+                    sleepTimerCountdown
                 }
                 
                 Spacer()
@@ -347,8 +356,32 @@ struct ContentView: View {
     }
     
     
+    /// Live countdown capsule shown under the play button while a sleep timer is armed.
+    /// Occupies a fixed-height slot so the play button never shifts.
+    private var sleepTimerCountdown: some View {
+        Group {
+            if let end = sleepTimerEndDate {
+                HStack(spacing: 6) {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(timerInterval: Date.now...end, countsDown: true)
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .glassCapsule()
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .accessibilityLabel("Sleep timer running")
+            }
+        }
+        .frame(height: 36)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: sleepTimerEndDate != nil)
+    }
+
     // MARK: - Theme Components
-    
+
     /// Theme toggle button with Liquid Glass enhancement
     private var themeToggleButton: some View {
         Button(action: cycleThemeMode) {
@@ -538,7 +571,7 @@ struct ContentView: View {
     
     /// Menu overlay height that scales with device
     private var menuOverlayHeight: CGFloat {
-        let baseHeight: CGFloat = 160
+        let baseHeight: CGFloat = 238  // sounds row + sleep-timer row
         return baseHeight * scalingFactor
     }
     
@@ -686,8 +719,28 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, soundMenuHorizontalPadding)
             }
-            
-            // Equal space below to center the buttons
+
+            Spacer()
+
+            // Sleep timer selector
+            VStack(spacing: 10) {
+                Text("SLEEP TIMER")
+                    .font(.system(.caption2, design: .default, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .kerning(1.2)
+
+                // Chips stay crisp/separate — no GlassEffectContainer here, so
+                // neighbouring glass capsules don't merge into blobs.
+                HStack(spacing: 8) {
+                    sleepTimerChip(nil)
+                    ForEach(Self.sleepTimerOptions, id: \.self) { minutes in
+                        sleepTimerChip(minutes)
+                    }
+                }
+            }
+            .padding(.horizontal, soundMenuHorizontalPadding)
+
+            // Equal space below to center the content
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -727,6 +780,27 @@ struct ContentView: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
     
+    /// Sleep timer chip — a compact Liquid Glass capsule. `nil` means "Off".
+    private func sleepTimerChip(_ minutes: Int?) -> some View {
+        let isSelected = sleepTimerMinutes == minutes
+        let label = minutes.map { "\($0)m" } ?? "Off"
+        return Button(action: { setSleepTimer(minutes) }) {
+            Text(label)
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.8))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .glassCapsule(tint: isSelected ? .indigo : nil)
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSelected)
+        .accessibilityLabel(minutes.map { "Sleep timer \($0) minutes" } ?? "Sleep timer off")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
     /// Icon for sounds
     private func iconForSound(_ sound: SoundType) -> String {
         switch sound {
@@ -779,6 +853,10 @@ struct ContentView: View {
         if env["UITEST_PLAYING"] == "1" {
             isPlaying = true
         }
+        if let timer = env["UITEST_TIMER"], let minutes = Int(timer) {
+            sleepTimerMinutes = minutes
+            sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        }
     }
     #endif
 
@@ -800,6 +878,11 @@ struct ContentView: View {
         let targetState = !isPlaying
         withAnimation(.easeInOut(duration: 0.15)) {
             isPlaying = targetState
+        }
+
+        // Manual stop also clears any armed sleep timer
+        if !targetState {
+            cancelSleepTimer()
         }
 
         // Cancel any existing audio task
@@ -982,6 +1065,7 @@ struct ContentView: View {
         // Cancel all tasks
         audioTask?.cancel()
         screenDimTask?.cancel()
+        cancelSleepTimer()
         
         // Stop all audio
         currentAudioPlayer?.stop()
@@ -1072,6 +1156,73 @@ struct ContentView: View {
         }
     }
     
+    // MARK: - Sleep Timer Control
+
+    /// Arms the sleep timer for the given minutes, or cancels it when `nil` ("Off").
+    private func setSleepTimer(_ minutes: Int?) {
+        recordUserInteraction()
+        triggerLightHapticFeedback()
+
+        guard let minutes else {
+            cancelSleepTimer()
+            return
+        }
+
+        // Re-arm: replace any running timer
+        sleepTimerTask?.cancel()
+        sleepTimerMinutes = minutes
+        sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+
+        sleepTimerTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(minutes * 60))
+            } catch {
+                return // cancelled — re-armed, turned off, or manual stop
+            }
+            guard !Task.isCancelled else { return }
+            await fadeOutAndStop()
+        }
+    }
+
+    /// Cancels the sleep timer without touching playback.
+    private func cancelSleepTimer() {
+        sleepTimerTask?.cancel()
+        sleepTimerTask = nil
+        sleepTimerEndDate = nil
+        sleepTimerMinutes = nil
+    }
+
+    /// Gently fades the current audio to silence over ~3s, then stops playback.
+    @MainActor
+    private func fadeOutAndStop() async {
+        let fadeDuration: TimeInterval = 3.0
+
+        if let player = currentAudioPlayer {
+            // MP3 path: built-in fade, then restore the player's volume for next play
+            let originalVolume = player.volume
+            player.setVolume(0, fadeDuration: fadeDuration)
+            try? await Task.sleep(for: .seconds(fadeDuration + 0.1))
+            player.stop()
+            player.volume = originalVolume
+        } else if let engine = audioEngine {
+            // Generated-noise path: ramp the mixer down in small steps
+            let steps = 30
+            let stepDuration = fadeDuration / Double(steps)
+            let startVolume = engine.mainMixerNode.outputVolume
+            for step in 1...steps {
+                engine.mainMixerNode.outputVolume = startVolume * Float(steps - step) / Float(steps)
+                try? await Task.sleep(for: .seconds(stepDuration))
+            }
+        }
+
+        // Fully stop and update UI
+        await stopAudioSilently()
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isPlaying = false
+        }
+        cancelSleepTimer()
+    }
+
     // MARK: - Haptic Feedback
     
     /// Triggers haptic feedback to simulate physical button press
@@ -1324,6 +1475,8 @@ struct ContentView: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isPlaying = false
                 }
+                // Playback ended, so the armed timer no longer has anything to stop
+                cancelSleepTimer()
             }
         case .ended:
             // Interruption ended - don't automatically resume, let user control
@@ -1358,6 +1511,17 @@ private extension View {
             glassEffect(makeGlass(tint: tint, interactive: interactive), in: Circle())
         } else {
             background(.ultraThinMaterial, in: Circle())
+        }
+    }
+
+    /// Applies a genuine Liquid Glass effect clipped to a capsule on iOS 26+,
+    /// falling back to a translucent material on earlier systems.
+    @ViewBuilder
+    func glassCapsule(tint: Color? = nil, interactive: Bool = true) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(makeGlass(tint: tint, interactive: interactive), in: Capsule())
+        } else {
+            background(.ultraThinMaterial, in: Capsule())
         }
     }
 

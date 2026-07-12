@@ -5,6 +5,25 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-11 — Cycle 3: P2 sleep timer ✅ (build + UI verified; expiry logic-verified)
+- **New feature:** sleep timer with Off/15/30/45/60/90/120-min glass capsule chips in the
+  sounds drawer (drawer height 160→238), indigo tint when armed, `.isSelected` a11y traits.
+- Live countdown capsule under the play button while armed (`Text(timerInterval:)` — no
+  Timer objects), fixed-height slot so the play button never shifts.
+- Expiry: ~3s fade-out — MP3 via `setVolume(0, fadeDuration:)` (restores volume after stop
+  so the next play isn't silent); generated noise via a 30-step mixer ramp — then full stop.
+- Cancellation wired into: manual stop, audio interruption, re-arm, "Off", and view cleanup.
+- DEBUG hook extended with `UITEST_TIMER=<minutes>` for screenshot states.
+- Fixed two visual defects found during verification: chip text wrapping ("15m" → two
+  lines) and adjacent capsules blending into blobs (removed GlassEffectContainer for chips).
+- **Verified:** Debug + Release builds clean (zero warnings); menu chips and live countdown
+  visually confirmed in the sim. **Residual risk:** end-to-end expiry fade not audibly
+  verified (needs a ≥15-min wait); logic is compile-verified and cancellation-checked —
+  suggest a quick 15-min manual QA in the morning.
+- **Next up:** P2 (continued) — fade in/out on play/stop, then volume control in the menu.
+
+---
+
 ## 2026-07-11 — Cycle 2: P1 iPad screenshots ✅ (verified)
 - Captured all five marketing states on the **iPad Pro 13-inch (M4)** simulator at the
   exact App Store 13" spec (2064×2752), clean 9:41 status bar, via the DEBUG launch hook.
