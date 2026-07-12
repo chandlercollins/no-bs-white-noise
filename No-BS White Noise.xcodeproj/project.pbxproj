@@ -20,6 +20,7 @@
 		BF11F5FA2E2E734700481E3C /* Simple-White-Noise-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Simple-White-Noise-Info.plist"; sourceTree = "<group>"; };
 		BF11F5FB2E2E93F100481E3C /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		CB71C3042D0B5FCC000FB8BF /* No-BS White Noise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "No-BS White Noise.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB12CD012E2E000000000001 /* No-BS White NoiseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "No-BS White NoiseTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -28,10 +29,22 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		AB12CD022E2E000000000002 /* Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CB71C3012D0B5FCC000FB8BF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB12CD062E2E000000000006 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -49,6 +62,7 @@
 				BF11F5F82E2E713C00481E3C /* birdsounds.mp3 */,
 				BF11F5F22E2E5B0300481E3C /* fire.mp3 */,
 				CB71C3062D0B5FCC000FB8BF /* Sources */,
+				AB12CD022E2E000000000002 /* Tests */,
 				CB71C3052D0B5FCC000FB8BF /* Products */,
 				BF11F5FB2E2E93F100481E3C /* logo.png */,
 			);
@@ -58,6 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				CB71C3042D0B5FCC000FB8BF /* No-BS White Noise.app */,
+				AB12CD012E2E000000000001 /* No-BS White NoiseTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +102,47 @@
 			productReference = CB71C3042D0B5FCC000FB8BF /* No-BS White Noise.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AB12CD032E2E000000000003 /* No-BS White NoiseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB12CD042E2E000000000004 /* Build configuration list for PBXNativeTarget "No-BS White NoiseTests" */;
+			buildPhases = (
+				AB12CD052E2E000000000005 /* Sources */,
+				AB12CD062E2E000000000006 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB12CD072E2E000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AB12CD022E2E000000000002 /* Tests */,
+			);
+			name = "No-BS White NoiseTests";
+			packageProductDependencies = (
+			);
+			productName = "No-BS White NoiseTests";
+			productReference = AB12CD012E2E000000000001 /* No-BS White NoiseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		AB12CD082E2E000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CB71C2FC2D0B5FCC000FB8BF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB71C3032D0B5FCC000FB8BF;
+			remoteInfo = "No-BS White Noise";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AB12CD072E2E000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB71C3032D0B5FCC000FB8BF /* No-BS White Noise */;
+			targetProxy = AB12CD082E2E000000000008 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		CB71C2FC2D0B5FCC000FB8BF /* Project object */ = {
@@ -99,6 +154,10 @@
 				TargetAttributes = {
 					CB71C3032D0B5FCC000FB8BF = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					AB12CD032E2E000000000003 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = CB71C3032D0B5FCC000FB8BF;
 					};
 				};
 			};
@@ -117,6 +176,7 @@
 			projectRoot = "";
 			targets = (
 				CB71C3032D0B5FCC000FB8BF /* No-BS White Noise */,
+				AB12CD032E2E000000000003 /* No-BS White NoiseTests */,
 			);
 		};
 /* End PBXProject section */
@@ -137,6 +197,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		CB71C3002D0B5FCC000FB8BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB12CD052E2E000000000005 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -327,6 +394,42 @@
 			};
 			name = Release;
 		};
+		AB12CD092E2E000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.chandlercollins.No-BS-White-NoiseTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/No-BS White Noise.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/No-BS White Noise";
+			};
+			name = Debug;
+		};
+		AB12CD0A2E2E00000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.chandlercollins.No-BS-White-NoiseTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/No-BS White Noise.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/No-BS White Noise";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -344,6 +447,15 @@
 			buildConfigurations = (
 				CB71C3292D0B5FCE000FB8BF /* Debug */,
 				CB71C32A2D0B5FCE000FB8BF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB12CD042E2E000000000004 /* Build configuration list for PBXNativeTarget "No-BS White NoiseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB12CD092E2E000000000009 /* Debug */,
+				AB12CD0A2E2E00000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
