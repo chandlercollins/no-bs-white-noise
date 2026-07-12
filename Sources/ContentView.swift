@@ -349,7 +349,8 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .glassCapsule()
+                .glassCapsule(interactive: false)  // status readout, not a control
+                .allowsHitTesting(false)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 .accessibilityLabel("Sleep timer running")
             }
