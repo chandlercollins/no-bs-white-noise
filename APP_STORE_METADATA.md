@@ -102,18 +102,47 @@ white noise,brown noise,focus,sleep,study,meditation,rain sounds,fire,relaxation
 
 ## What's New in Version 2.1
 
-**Real Liquid Glass, a sleep timer, and more ways to play**
+**The biggest update since launch — real Liquid Glass, a sleep timer, and a lot more polish.**
 
-• NEW: Sleep timer — drift off and the sound fades out on its own (15 min to 2 hours)
-• NEW: Volume control, right in the sounds drawer
-• NEW: Gentle fade-in and fade-out — no more abrupt starts and stops
-• Rebuilt the play button, sound selector, and menu with Apple's genuine iOS 26 Liquid Glass materials
-• Start any sound hands-free with Siri
-• Control playback from Control Center and the Lock Screen
-• Cleaner light and dark themes that match your system on first launch
-• Smoother, more responsive controls with accessibility improvements throughout
+This one's worth celebrating. We rebuilt the app's design system on Apple's
+genuine iOS 26 Liquid Glass, added the #1 most-requested feature (a real
+sleep timer), and gave the whole experience a top-to-bottom accessibility
+pass. Same no-BS philosophy — no ads, no accounts, no subscriptions — just a
+noticeably better app.
 
-Same great sounds. Same no-BS philosophy. Now with next-generation design.
+✨ NEW: Real iOS 26 Liquid Glass
+The play button, sound selector, and menu now use Apple's genuine live glass
+material — translucent, refractive, and interactive — not a lookalike. On
+older iOS versions, everything still looks great with a graceful fallback.
+
+🌙 NEW: Sleep Timer
+Set it and forget it. Pick anywhere from 15 minutes to 2 hours, watch the
+live countdown, and let the sound fade out gently on its own — no jarring
+cutoff. Now also works hands-free: just say "Set a sleep timer" to Siri.
+
+🔊 NEW: Volume Control
+A dedicated volume slider now lives right in the sounds drawer, so you don't
+have to reach for your hardware buttons.
+
+🎚️ NEW: Fade In / Fade Out
+Every start and stop is now click-free and gentle, not abrupt.
+
+🗣️ Siri & Shortcuts
+Start any sound — or set a sleep timer — completely hands-free.
+
+📱 Control Center & Lock Screen
+Full playback controls without unlocking your phone.
+
+🎨 Refined Light & Dark Themes
+Matches your system appearance automatically on first launch.
+
+♿ Accessibility Pass
+Dynamic Type now scales properly throughout the app, all controls have
+VoiceOver labels, and we fixed a handful of rough edges — including a
+countdown readout that used to look tappable but wasn't.
+
+Five sounds. One purpose. Zero BS. Thanks for making this app possible —
+we're just getting started.
 
 ---
 
