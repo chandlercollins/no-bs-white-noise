@@ -60,6 +60,7 @@ struct ContentView: View {
     @AppStorage("themeMode") private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
     @AppStorage("selectedSound") private var selectedSoundType: SoundType = .white
+    @AppStorage("masterVolume") private var masterVolume: Double = 0.7
     @State private var isMenuExpanded = false
     @State private var lastUserInteraction: Date = Date()
 
@@ -571,7 +572,7 @@ struct ContentView: View {
     
     /// Menu overlay height that scales with device
     private var menuOverlayHeight: CGFloat {
-        let baseHeight: CGFloat = 238  // sounds row + sleep-timer row
+        let baseHeight: CGFloat = 296  // sounds + volume + sleep-timer rows
         return baseHeight * scalingFactor
     }
     
@@ -719,6 +720,27 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, soundMenuHorizontalPadding)
             }
+
+            Spacer()
+
+            // Master volume
+            HStack(spacing: 12) {
+                Image(systemName: "speaker.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Slider(value: $masterVolume, in: 0...1)
+                    .tint(.secondary)
+                    .onChange(of: masterVolume) { _, _ in
+                        applyMasterVolume()
+                    }
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, soundMenuHorizontalPadding + 8)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Volume")
+            .accessibilityValue("\(Int(masterVolume * 100)) percent")
 
             Spacer()
 
@@ -932,32 +954,72 @@ struct ContentView: View {
         }
     }
 
-    /// Plays MP3 audio using preloaded AVAudioPlayer with async handling
+    /// Plays MP3 audio using preloaded AVAudioPlayer, fading in gently
     private func playMPAudio(player: AVAudioPlayer) async {
         // Stop any current audio first
         await stopAudioSilently()
-        
-        // Configure and start the player
+
+        // Start silent, then fade in for a premium, click-free start
+        player.volume = 0
         currentAudioPlayer = player
         currentAudioPlayer?.numberOfLoops = -1 // Infinite loop
         currentAudioPlayer?.currentTime = 0
         currentAudioPlayer?.play()
+        player.setVolume(effectiveMP3Volume, fadeDuration: fadeInDuration)
     }
-    
-    /// Plays generated audio using AVAudioEngine with async handling
+
+    /// Plays generated audio using AVAudioEngine, fading in gently
     private func playGeneratedAudio() async throws {
         // Stop any current audio first
         await stopAudioSilently()
-        
+
         let engine = AVAudioEngine()
         let noiseNode = createWhiteNoiseNode()
         let lowPassFilter = createLowPassFilter()
-        
+
         setupAudioChain(engine: engine, noiseNode: noiseNode, filter: lowPassFilter)
-        
+
+        engine.mainMixerNode.outputVolume = 0
         try engine.start()
         audioEngine = engine
         whiteNoiseNode = noiseNode
+        await fadeCurrentAudio(to: Float(masterVolume), duration: fadeInDuration)
+    }
+
+    // MARK: - Volume & Fades
+
+    /// Duration of the gentle fade-in when playback starts.
+    private var fadeInDuration: TimeInterval { 0.5 }
+
+    /// The MP3 player volume for the current sound and master volume setting.
+    /// Base gain keeps MP3 loudness roughly in line with the generated sounds.
+    private var effectiveMP3Volume: Float {
+        0.45 * Float(masterVolume)
+    }
+
+    /// Fades whatever is currently playing to `target` volume over `duration`.
+    /// MP3s use AVAudioPlayer's built-in fade; the engine ramps its mixer in steps.
+    @MainActor
+    private func fadeCurrentAudio(to target: Float, duration: TimeInterval) async {
+        if let player = currentAudioPlayer {
+            player.setVolume(target, fadeDuration: duration)
+            try? await Task.sleep(for: .seconds(duration + 0.05))
+        } else if let engine = audioEngine {
+            let steps = max(6, Int(duration / 0.05))
+            let start = engine.mainMixerNode.outputVolume
+            for step in 1...steps {
+                guard !Task.isCancelled else { return }
+                let progress = Float(step) / Float(steps)
+                engine.mainMixerNode.outputVolume = start + (target - start) * progress
+                try? await Task.sleep(for: .seconds(duration / Double(steps)))
+            }
+        }
+    }
+
+    /// Applies a new master volume to whatever is currently playing (live, no fade).
+    private func applyMasterVolume() {
+        currentAudioPlayer?.volume = effectiveMP3Volume
+        audioEngine?.mainMixerNode.outputVolume = Float(masterVolume)
     }
     
     /// Creates optimized audio source node for noise generation (Performance Critical)
@@ -1036,9 +1098,10 @@ struct ContentView: View {
         engine.connect(filter, to: engine.mainMixerNode, format: nil)
     }
 
-    /// Stops audio quickly (no UI update - already done optimistically)
+    /// Stops audio with a quick fade-out (no UI update - already done optimistically)
     @MainActor
     private func stopAudioQuick() async {
+        await fadeCurrentAudio(to: 0, duration: 0.3)
         await stopAudioSilently()
     }
 
@@ -1193,27 +1256,10 @@ struct ContentView: View {
     }
 
     /// Gently fades the current audio to silence over ~3s, then stops playback.
+    /// (Volumes are re-applied on every play, so no restore is needed here.)
     @MainActor
     private func fadeOutAndStop() async {
-        let fadeDuration: TimeInterval = 3.0
-
-        if let player = currentAudioPlayer {
-            // MP3 path: built-in fade, then restore the player's volume for next play
-            let originalVolume = player.volume
-            player.setVolume(0, fadeDuration: fadeDuration)
-            try? await Task.sleep(for: .seconds(fadeDuration + 0.1))
-            player.stop()
-            player.volume = originalVolume
-        } else if let engine = audioEngine {
-            // Generated-noise path: ramp the mixer down in small steps
-            let steps = 30
-            let stepDuration = fadeDuration / Double(steps)
-            let startVolume = engine.mainMixerNode.outputVolume
-            for step in 1...steps {
-                engine.mainMixerNode.outputVolume = startVolume * Float(steps - step) / Float(steps)
-                try? await Task.sleep(for: .seconds(stepDuration))
-            }
-        }
+        await fadeCurrentAudio(to: 0, duration: 3.0)
 
         // Fully stop and update UI
         await stopAudioSilently()
@@ -1239,25 +1285,25 @@ struct ContentView: View {
     
     // MARK: - Audio Preloading
     
-    /// Efficiently preloads MP3 audio files to prevent hitches
+    /// Efficiently preloads MP3 audio files to prevent hitches.
+    /// Playback volume is applied at play time (master volume × base gain).
     private func preloadAudioFiles() {
-        let audioFiles: [(SoundType, String, Float)] = [
-            (.fire, "fire", 0.3),
-            (.rain, "rain", 0.3),
-            (.birds, "birdsounds", 0.3)
+        let audioFiles: [(SoundType, String)] = [
+            (.fire, "fire"),
+            (.rain, "rain"),
+            (.birds, "birdsounds")
         ]
-        
-        for (soundType, filename, volume) in audioFiles {
+
+        for (soundType, filename) in audioFiles {
             guard let path = Bundle.main.path(forResource: filename, ofType: "mp3") else {
                 print("Audio file not found: \(filename).mp3")
                 continue
             }
-            
+
             let url = URL(fileURLWithPath: path)
             do {
                 let player = try AVAudioPlayer(contentsOf: url)
                 player.prepareToPlay()
-                player.volume = volume
                 player.enableRate = false
                 preloadedPlayers[soundType] = player
             } catch {

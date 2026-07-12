@@ -102,8 +102,11 @@ white noise,brown noise,focus,sleep,study,meditation,rain sounds,fire,relaxation
 
 ## What's New in Version 2.1
 
-**Real Liquid Glass, and more ways to play**
+**Real Liquid Glass, a sleep timer, and more ways to play**
 
+• NEW: Sleep timer — drift off and the sound fades out on its own (15 min to 2 hours)
+• NEW: Volume control, right in the sounds drawer
+• NEW: Gentle fade-in and fade-out — no more abrupt starts and stops
 • Rebuilt the play button, sound selector, and menu with Apple's genuine iOS 26 Liquid Glass materials
 • Start any sound hands-free with Siri
 • Control playback from Control Center and the Lock Screen

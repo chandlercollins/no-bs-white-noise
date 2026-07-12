@@ -5,6 +5,24 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-11 — Cycle 4: P2 complete — fades + volume control ✅ (build + UI verified)
+- **Fade in/out:** playback now fades in over 0.5s (MP3 `setVolume(_:fadeDuration:)`,
+  engine mixer ramp) and manual stop fades out over 0.3s. Sound switching stays instant.
+- **Master volume:** `@AppStorage("masterVolume")` (default 0.7) with a slider row in the
+  drawer (speaker icons, combined a11y element); changes apply live to whatever is playing.
+- Refactored the sleep timer's fade into a shared `fadeCurrentAudio(to:duration:)`;
+  volumes are re-applied on every play, so the MP3 volume-restore hack is gone.
+- Preload no longer bakes in per-sound volumes (applied at play time as base × master).
+  MP3 base gain 0.45 keeps loudness near previous levels at the default master volume.
+- **Refreshed marketing screenshots** (iPhone + iPad): drawer shots now show volume +
+  sleep timer; "playing" shot shows the live countdown chip. `What's New` copy updated.
+- **Verified:** Debug + Release builds clean; drawer UI + countdown visually confirmed.
+  **Residual risk:** fades are audio-domain — not audibly verified in the sim; morning QA:
+  play/stop each sound once (fade-in/out) and drag the volume slider while playing.
+- **Next up:** P3 — Reduce Motion for the pulse, Dynamic Type pass, loudness normalization.
+
+---
+
 ## 2026-07-11 — Cycle 3: P2 sleep timer ✅ (build + UI verified; expiry logic-verified)
 - **New feature:** sleep timer with Off/15/30/45/60/90/120-min glass capsule chips in the
   sounds drawer (drawer height 160→238), indigo tint when armed, `.isSelected` a11y traits.
