@@ -5,6 +5,22 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-11 — Cycle 5: P3 polish ✅ (verified)
+- **Reduce Motion:** pulse animations (play button + drawer handle) now skipped when
+  `accessibilityReduceMotion` is on.
+- **Dynamic Type:** main screen scales; the drawer is pinned at the default size after
+  empirically verifying that even `xxxLarge` overflows the 7-chip timer row (AX5 screenshots
+  at each cap). Standard compact-control-cluster pattern; all controls have VoiceOver labels.
+- **Loudness normalization with real data:** decoded the MP3s and measured RMS
+  (fire 0.025, rain 0.045, birds 0.008 vs generated white ~0.185). Applied √-compressed
+  per-sound base gains anchored to Chandler's previous 0.3 tuning: fire 0.60, rain 0.45,
+  birds 1.0. **Morning ears-on QA recommended** (relative levels are estimates).
+- **Verified:** Debug + Release clean; AX5 drawer confirmed pixel-perfect in sim.
+- **Next up:** P4 — minimal test target with smoke tests; audio-engine refactor PLAN;
+  then final regression pass + LAUNCH_CHECKLIST.md.
+
+---
+
 ## 2026-07-11 — Cycle 4: P2 complete — fades + volume control ✅ (build + UI verified)
 - **Fade in/out:** playback now fades in over 0.5s (MP3 `setVolume(_:fadeDuration:)`,
   engine mixer ramp) and manual stop fades out over 0.3s. Sound switching stays instant.

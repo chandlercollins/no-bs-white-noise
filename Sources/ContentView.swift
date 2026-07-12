@@ -80,6 +80,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -163,7 +164,9 @@ struct ContentView: View {
             setupSiriIntentListener()
             
             // Start handle pulse animation after a short delay to draw attention
+            // (skipped entirely when Reduce Motion is on)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                guard !reduceMotion else { return }
                 withAnimation {
                     handlePulseAnimation = true
                 }
@@ -324,7 +327,8 @@ struct ContentView: View {
         }
         .onChange(of: isPlaying) { _, newValue in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                self.pulseAnimation = newValue
+                // Respect Reduce Motion: skip the endless pulse
+                self.pulseAnimation = newValue && !reduceMotion
             }
         }
     }
@@ -768,6 +772,12 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .frame(height: menuOverlayHeight)
         .ignoresSafeArea(.container, edges: .horizontal)
+        // The drawer is a compact control cluster with no horizontal headroom —
+        // even xxxLarge overflows the 7-chip timer row on a 440pt screen. Pin it
+        // at the default size (standard for toolbars/drawers); every control has
+        // an accessibilityLabel so VoiceOver remains fully usable, and the main
+        // screen still scales with Dynamic Type.
+        .dynamicTypeSize(...DynamicTypeSize.large)
     }
     
     /// Sound button — a genuine Liquid Glass circle, tinted when selected (iOS 26).
@@ -992,9 +1002,19 @@ struct ContentView: View {
     private var fadeInDuration: TimeInterval { 0.5 }
 
     /// The MP3 player volume for the current sound and master volume setting.
-    /// Base gain keeps MP3 loudness roughly in line with the generated sounds.
     private var effectiveMP3Volume: Float {
-        0.45 * Float(masterVolume)
+        mp3BaseVolume(for: selectedSoundType) * Float(masterVolume)
+    }
+
+    /// Per-sound base gain, tuned from measured file RMS (fire 0.025, rain 0.045,
+    /// birds 0.008) with √-compression, anchored to rain ≈ the previous 0.3 level.
+    private func mp3BaseVolume(for type: SoundType) -> Float {
+        switch type {
+        case .fire: return 0.60
+        case .rain: return 0.45
+        case .birds: return 1.0
+        default: return 0.45 // white/brown are engine-generated; not used
+        }
     }
 
     /// Fades whatever is currently playing to `target` volume over `duration`.
