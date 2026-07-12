@@ -111,6 +111,9 @@ manual choice. Both now persist.
 7. **Focus filter integration** (`SetFocusFilterIntent`) — auto-start a sound
    when a Focus turns on.
 8. **Apple Watch companion** — start/stop from the wrist (already on the roadmap).
+8b. **Mac support** *(confirmed "eventually" by Chandler, 2026-07-11)* — likely via Mac
+    Catalyst or "Designed for iPad" first, native SwiftUI Mac app later. Audio engine and
+    Liquid Glass code are already cross-platform-friendly; main work is layout + menu bar.
 9. **Interactive "Set sleep timer" App Intent / Shortcuts action.**
 10. **iPad-specific layout.** Today the UI just scales 1.6×; the extra canvas
     could host the sound selector inline instead of in a drawer.
