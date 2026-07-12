@@ -45,36 +45,18 @@ enum SoundType: String, CaseIterable {
 
 /// Main view for the white noise application
 struct ContentView: View {
-    // MARK: - Audio Properties (Simplified for Performance)
-    @State private var audioEngine: AVAudioEngine?
-    @State private var whiteNoiseNode: AVAudioSourceNode?
-    @State private var currentAudioPlayer: AVAudioPlayer?
-    @State private var preloadedPlayers: [SoundType: AVAudioPlayer] = [:]
-    @State private var brownNoiseFilter: Float = 0.0
+    // MARK: - Audio
+    /// All audio behavior lives here; the view is presentation only.
+    @State private var audio = AudioEngine()
 
-    // MARK: - UI State (Optimized)
-    @State private var isPlaying = false
+    // MARK: - UI State
     @State private var pulseAnimation = false
     @State private var handlePulseAnimation = false
-    @State private var isTransitioning = false
     @AppStorage("themeMode") private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
-    @AppStorage("selectedSound") private var selectedSoundType: SoundType = .white
-    @AppStorage("masterVolume") private var masterVolume: Double = 0.7
     @State private var isMenuExpanded = false
     @State private var lastUserInteraction: Date = Date()
-
-    // MARK: - Task Management
-    @State private var audioTask: Task<Void, Never>?
     @State private var screenDimTask: Task<Void, Error>?
-
-    // MARK: - Sleep Timer
-    @State private var sleepTimerTask: Task<Void, Never>?
-    @State private var sleepTimerEndDate: Date?
-    @State private var sleepTimerMinutes: Int?
-
-    /// Sleep timer choices, in minutes. `nil` represents "Off".
-    private static let sleepTimerOptions: [Int] = [15, 30, 45, 60, 90, 120]
 
     // MARK: - Environment
     @Environment(\.colorScheme) private var systemColorScheme
@@ -151,18 +133,12 @@ struct ContentView: View {
             applyScreenshotStateIfNeeded()
             #endif
 
+            // One-time audio setup (preload, remote commands, observers)
+            audio.start()
+
             // Initialize screen management
             setupScreenManagement()
 
-            // Preload audio files to prevent hitches
-            preloadAudioFiles()
-
-            // Set up remote control commands for Control Center
-            setupRemoteCommandCenter()
-
-            // Setup Siri intent listener
-            setupSiriIntentListener()
-            
             // Start handle pulse animation after a short delay to draw attention
             // (skipped entirely when Reduce Motion is on)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -179,19 +155,16 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: isPlaying) { _, newValue in
+        .onChange(of: audio.isPlaying) { _, newValue in
             // Update screen dimming behavior based on playback state
             updateScreenDimming(isPlaying: newValue)
-            
+
             // Update Control Center info
-            updateNowPlayingInfo()
+            audio.updateNowPlayingInfo()
         }
         .onDisappear {
             // Clean up all resources when view disappears
             cleanupAllResources()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { notification in
-            handleAudioInterruption(notification)
         }
         .onTapGesture {
             // Track user interaction for screen dimming
@@ -288,7 +261,7 @@ struct ContentView: View {
     
     /// Play/Stop button — the hero control, rendered in genuine Liquid Glass on iOS 26.
     private var playStopButton: some View {
-        let stateColor = isPlaying ? playButtonStopColor : playButtonPlayColor
+        let stateColor = audio.isPlaying ? playButtonStopColor : playButtonPlayColor
         return Button(action: togglePlayback) {
             ZStack {
                 // Soft colored glow so the hero reads on both light and dark backgrounds
@@ -304,28 +277,28 @@ struct ContentView: View {
                     .frame(width: playButtonSize * 1.3, height: playButtonSize * 1.3)
                     .blur(radius: 24)
                     .opacity(pulseAnimation ? 0.75 : 0.45)
-                    .animation(.easeInOut(duration: 0.25), value: isPlaying)
+                    .animation(.easeInOut(duration: 0.25), value: audio.isPlaying)
 
                 playButtonSurface(stateColor: stateColor)
                     .shadow(color: stateColor.opacity(0.35), radius: 20, x: 0, y: 10)
                     .shadow(color: .black.opacity(0.15), radius: 30, x: 0, y: 16)
-                    .scaleEffect(pulseAnimation ? (isPlaying ? 1.03 : 1.02) : 1.0)
+                    .scaleEffect(pulseAnimation ? (audio.isPlaying ? 1.03 : 1.02) : 1.0)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isPlaying ? "Stop" : "Play")
-        .accessibilityHint(isPlaying ? "Stops the sound" : "Plays \(selectedSoundType.displayName) noise")
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isPlaying)
+        .accessibilityLabel(audio.isPlaying ? "Stop" : "Play")
+        .accessibilityHint(audio.isPlaying ? "Stops the sound" : "Plays \(audio.selectedSound.displayName) noise")
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: audio.isPlaying)
         .animation(
             pulseAnimation ?
-            .easeInOut(duration: isPlaying ? 1.2 : 2.5).repeatForever(autoreverses: true) :
+            .easeInOut(duration: audio.isPlaying ? 1.2 : 2.5).repeatForever(autoreverses: true) :
             .spring(response: 0.3, dampingFraction: 0.85),
             value: pulseAnimation
         )
         .onAppear {
             pulseAnimation = false
         }
-        .onChange(of: isPlaying) { _, newValue in
+        .onChange(of: audio.isPlaying) { _, newValue in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                 // Respect Reduce Motion: skip the endless pulse
                 self.pulseAnimation = newValue && !reduceMotion
@@ -337,7 +310,7 @@ struct ContentView: View {
     /// with a layered gradient fallback on earlier systems.
     @ViewBuilder
     private func playButtonSurface(stateColor: Color) -> some View {
-        let icon = Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+        let icon = Image(systemName: audio.isPlaying ? "stop.fill" : "play.fill")
             .font(.system(size: playButtonIconSize, weight: .semibold))
             .foregroundStyle(.white)
             .contentTransition(.symbolEffect(.replace))
@@ -365,7 +338,7 @@ struct ContentView: View {
     /// Occupies a fixed-height slot so the play button never shifts.
     private var sleepTimerCountdown: some View {
         Group {
-            if let end = sleepTimerEndDate {
+            if let end = audio.sleepTimerEndDate {
                 HStack(spacing: 6) {
                     Image(systemName: "moon.zzz.fill")
                         .font(.system(size: 13, weight: .semibold))
@@ -382,7 +355,7 @@ struct ContentView: View {
             }
         }
         .frame(height: 36)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: sleepTimerEndDate != nil)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: audio.sleepTimerEndDate != nil)
     }
 
     // MARK: - Theme Components
@@ -732,11 +705,14 @@ struct ContentView: View {
                 Image(systemName: "speaker.fill")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-                Slider(value: $masterVolume, in: 0...1)
-                    .tint(.secondary)
-                    .onChange(of: masterVolume) { _, _ in
-                        applyMasterVolume()
-                    }
+                Slider(
+                    value: Binding(
+                        get: { audio.masterVolume },
+                        set: { audio.masterVolume = $0 }  // engine applies live
+                    ),
+                    in: 0...1
+                )
+                .tint(.secondary)
                 Image(systemName: "speaker.wave.3.fill")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -744,7 +720,7 @@ struct ContentView: View {
             .padding(.horizontal, soundMenuHorizontalPadding + 8)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Volume")
-            .accessibilityValue("\(Int(masterVolume * 100)) percent")
+            .accessibilityValue("\(Int(audio.masterVolume * 100)) percent")
 
             Spacer()
 
@@ -759,7 +735,7 @@ struct ContentView: View {
                 // neighbouring glass capsules don't merge into blobs.
                 HStack(spacing: 8) {
                     sleepTimerChip(nil)
-                    ForEach(Self.sleepTimerOptions, id: \.self) { minutes in
+                    ForEach(AudioEngine.sleepTimerOptions, id: \.self) { minutes in
                         sleepTimerChip(minutes)
                     }
                 }
@@ -782,7 +758,7 @@ struct ContentView: View {
     
     /// Sound button — a genuine Liquid Glass circle, tinted when selected (iOS 26).
     private func soundButton(_ type: SoundType) -> some View {
-        let isSelected = selectedSoundType == type
+        let isSelected = audio.selectedSound == type
         let tint = soundBackgroundColor(for: type)
         return Button(action: { selectSound(type) }) {
             VStack(spacing: 12) {
@@ -814,7 +790,7 @@ struct ContentView: View {
     
     /// Sleep timer chip — a compact Liquid Glass capsule. `nil` means "Off".
     private func sleepTimerChip(_ minutes: Int?) -> some View {
-        let isSelected = sleepTimerMinutes == minutes
+        let isSelected = audio.sleepTimerMinutes == minutes
         let label = minutes.map { "\($0)m" } ?? "Off"
         return Button(action: { setSleepTimer(minutes) }) {
             Text(label)
@@ -877,294 +853,41 @@ struct ContentView: View {
             themeMode = (theme == "dark") ? .dark : .light
         }
         if let sound = env["UITEST_SOUND"], let type = SoundType(rawValue: sound) {
-            selectedSoundType = type
+            audio.selectedSound = type
         }
         if env["UITEST_MENU"] == "1" {
             isMenuExpanded = true
         }
-        if env["UITEST_PLAYING"] == "1" {
-            isPlaying = true
-        }
-        if let timer = env["UITEST_TIMER"], let minutes = Int(timer) {
-            sleepTimerMinutes = minutes
-            sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        let playing = env["UITEST_PLAYING"] == "1" ? true : nil
+        let timerMinutes = env["UITEST_TIMER"].flatMap(Int.init)
+        if playing != nil || timerMinutes != nil {
+            audio.applyScreenshotState(playing: playing, timerMinutes: timerMinutes)
         }
     }
     #endif
 
-    // MARK: - Audio Control
-    
-    /// Toggles between play and stop states with proper async handling
+    // MARK: - Audio Control (delegated to AudioEngine)
+
+    /// Toggles playback: view concerns here (haptics, screen dimming, animation),
+    /// audio concerns in the engine.
     private func togglePlayback() {
-        guard !isTransitioning else { return }
+        guard !audio.isTransitioning else { return }
 
-        // Record user interaction for screen dimming
         recordUserInteraction()
-
-        // Provide haptic feedback for physical button feel
         triggerHapticFeedback()
 
-        isTransitioning = true
-
-        // Update UI immediately for instant feedback (optimistic update)
-        let targetState = !isPlaying
         withAnimation(.easeInOut(duration: 0.15)) {
-            isPlaying = targetState
-        }
-
-        // Manual stop also clears any armed sleep timer
-        if !targetState {
-            cancelSleepTimer()
-        }
-
-        // Cancel any existing audio task
-        audioTask?.cancel()
-
-        // Use structured concurrency for audio operations
-        audioTask = Task { @MainActor in
-            if targetState {
-                await startAudioQuick()
-            } else {
-                await stopAudioQuick()
-            }
-            isTransitioning = false
+            _ = audio.togglePlayback()
         }
     }
     
-    /// Starts audio with quick response (no UI update - already done optimistically)
-    @MainActor
-    private func startAudioQuick() async {
-        do {
-            // Configure audio session for Now Playing / Control Center visibility
-            let audioSession = AVAudioSession.sharedInstance()
-            // Note: Removed .mixWithOthers to show in Now Playing/Control Center
-            // Future: Make this toggleable in settings to allow mixing with other audio
-            try audioSession.setCategory(.playback, mode: .default, options: [])
-            try audioSession.setActive(true)
-
-            // Initialize brown noise filter to prevent initial click
-            if selectedSoundType == .brown && brownNoiseFilter == 0.0 {
-                brownNoiseFilter = Float.random(in: -0.05...0.05)
-            }
-
-            // Use preloaded player for MP3 files
-            if let player = preloadedPlayers[selectedSoundType] {
-                await playMPAudio(player: player)
-            } else {
-                // Use audio engine for generated sounds
-                try await playGeneratedAudio()
-            }
-
-        } catch {
-            print("Audio start error: \(error.localizedDescription)")
-            // Revert UI on error
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isPlaying = false
-            }
-        }
-    }
-
-    /// Plays MP3 audio using preloaded AVAudioPlayer, fading in gently
-    private func playMPAudio(player: AVAudioPlayer) async {
-        // Stop any current audio first
-        await stopAudioSilently()
-
-        // Start silent, then fade in for a premium, click-free start
-        player.volume = 0
-        currentAudioPlayer = player
-        currentAudioPlayer?.numberOfLoops = -1 // Infinite loop
-        currentAudioPlayer?.currentTime = 0
-        currentAudioPlayer?.play()
-        player.setVolume(effectiveMP3Volume, fadeDuration: fadeInDuration)
-    }
-
-    /// Plays generated audio using AVAudioEngine, fading in gently
-    private func playGeneratedAudio() async throws {
-        // Stop any current audio first
-        await stopAudioSilently()
-
-        let engine = AVAudioEngine()
-        let noiseNode = createWhiteNoiseNode()
-        let lowPassFilter = createLowPassFilter()
-
-        setupAudioChain(engine: engine, noiseNode: noiseNode, filter: lowPassFilter)
-
-        engine.mainMixerNode.outputVolume = 0
-        try engine.start()
-        audioEngine = engine
-        whiteNoiseNode = noiseNode
-        await fadeCurrentAudio(to: Float(masterVolume), duration: fadeInDuration)
-    }
-
-    // MARK: - Volume & Fades
-
-    /// Duration of the gentle fade-in when playback starts.
-    private var fadeInDuration: TimeInterval { 0.5 }
-
-    /// The MP3 player volume for the current sound and master volume setting.
-    private var effectiveMP3Volume: Float {
-        mp3BaseVolume(for: selectedSoundType) * Float(masterVolume)
-    }
-
-    /// Per-sound base gain, tuned from measured file RMS (fire 0.025, rain 0.045,
-    /// birds 0.008) with √-compression, anchored to rain ≈ the previous 0.3 level.
-    private func mp3BaseVolume(for type: SoundType) -> Float {
-        switch type {
-        case .fire: return 0.60
-        case .rain: return 0.45
-        case .birds: return 1.0
-        default: return 0.45 // white/brown are engine-generated; not used
-        }
-    }
-
-    /// Fades whatever is currently playing to `target` volume over `duration`.
-    /// MP3s use AVAudioPlayer's built-in fade; the engine ramps its mixer in steps.
-    @MainActor
-    private func fadeCurrentAudio(to target: Float, duration: TimeInterval) async {
-        if let player = currentAudioPlayer {
-            player.setVolume(target, fadeDuration: duration)
-            try? await Task.sleep(for: .seconds(duration + 0.05))
-        } else if let engine = audioEngine {
-            let steps = max(6, Int(duration / 0.05))
-            let start = engine.mainMixerNode.outputVolume
-            for step in 1...steps {
-                guard !Task.isCancelled else { return }
-                let progress = Float(step) / Float(steps)
-                engine.mainMixerNode.outputVolume = start + (target - start) * progress
-                try? await Task.sleep(for: .seconds(duration / Double(steps)))
-            }
-        }
-    }
-
-    /// Applies a new master volume to whatever is currently playing (live, no fade).
-    private func applyMasterVolume() {
-        currentAudioPlayer?.volume = effectiveMP3Volume
-        audioEngine?.mainMixerNode.outputVolume = Float(masterVolume)
-    }
-    
-    /// Creates optimized audio source node for noise generation (Performance Critical)
-    private func createWhiteNoiseNode() -> AVAudioSourceNode {
-        AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
-            let bufferListPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
-
-            for buffer in bufferListPointer {
-                guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
-
-                let finalGain: Float = 0.8
-                let frameCountInt = Int(frameCount)
-                let soundType = self.selectedSoundType
-
-                switch soundType {
-                case .white:
-                    // Ultra-optimized white noise - use direct pointer writes
-                    var rng = SystemRandomNumberGenerator()
-                    for frame in 0..<frameCountInt {
-                        // Avoid closure overhead by inlining random generation
-                        let randomValue = Float(rng.next()) / Float(UInt64.max) // 0 to 1
-                        data[frame] = (randomValue * 0.8 - 0.4) * finalGain // Scale to -0.4...0.4
-                    }
-
-                case .brown:
-                    // Optimized brown noise - minimize operations per sample
-                    let filterCoeff: Float = 0.02
-                    let gainComp: Float = 3.5
-                    var filter = self.brownNoiseFilter
-                    var rng = SystemRandomNumberGenerator()
-
-                    for frame in 0..<frameCountInt {
-                        let randomValue = Float(rng.next()) / Float(UInt64.max)
-                        let noise = randomValue * 0.6 - 0.3 // Scale to -0.3...0.3
-                        filter += filterCoeff * (noise - filter)
-                        // Use clamp instead of min/max for better performance
-                        let sample = filter * gainComp
-                        data[frame] = (sample < -1.0 ? -1.0 : (sample > 1.0 ? 1.0 : sample)) * finalGain
-                    }
-
-                    self.brownNoiseFilter = filter
-
-                default:
-                    // Use memset for faster zeroing
-                    memset(data, 0, frameCountInt * MemoryLayout<Float>.stride)
-                }
-            }
-            return noErr
-        }
-    }
-    
-    /// Creates optimized low-pass filter to reduce harsh frequencies
-    private func createLowPassFilter() -> AVAudioUnitEQ {
-        let filter = AVAudioUnitEQ(numberOfBands: 1)
-        filter.bands[0].filterType = .lowPass
-        
-        // Adaptive filter frequency based on sound type
-        switch selectedSoundType {
-        case .white:
-            filter.bands[0].frequency = 8000  // Allow more brightness for white noise
-        case .brown:
-            filter.bands[0].frequency = 4000  // Warmer for brown noise
-        default:
-            filter.bands[0].frequency = 6000  // Default
-        }
-        
-        filter.bands[0].bypass = false
-        return filter
-    }
-    
-    /// Sets up the audio processing chain
-    private func setupAudioChain(engine: AVAudioEngine, noiseNode: AVAudioSourceNode, filter: AVAudioUnitEQ) {
-        engine.attach(noiseNode)
-        engine.attach(filter)
-        engine.connect(noiseNode, to: filter, format: nil)
-        engine.connect(filter, to: engine.mainMixerNode, format: nil)
-    }
-
-    /// Stops audio with a quick fade-out (no UI update - already done optimistically)
-    @MainActor
-    private func stopAudioQuick() async {
-        await fadeCurrentAudio(to: 0, duration: 0.3)
-        await stopAudioSilently()
-    }
-
-    /// Stops audio without updating UI state (for internal use)
-    private func stopAudioSilently() async {
-        // Stop current audio player
-        if let player = currentAudioPlayer {
-            player.stop()
-            currentAudioPlayer = nil
-        }
-        
-        // Stop audio engine
-        if let engine = audioEngine {
-            engine.stop()
-            audioEngine = nil
-            whiteNoiseNode = nil
-        }
-    }
-
     // MARK: - Resource Cleanup
-    
-    /// Comprehensive cleanup of all audio resources
+
+    /// Cleans up audio (via the engine) and view-owned resources
     private func cleanupAllResources() {
-        // Cancel all tasks
-        audioTask?.cancel()
         screenDimTask?.cancel()
-        cancelSleepTimer()
-        
-        // Stop all audio
-        currentAudioPlayer?.stop()
-        currentAudioPlayer = nil
-        
-        audioEngine?.stop()
-        audioEngine = nil
-        whiteNoiseNode = nil
-        
-        // Deactivate audio session
-        do {
-            try AVAudioSession.sharedInstance().setActive(false)
-        } catch {
-            print("Audio session deactivation error: \(error.localizedDescription)")
-        }
-        
+        audio.cleanup()
+
         // Re-enable screen timeout
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -1211,82 +934,19 @@ struct ContentView: View {
         }
     }
     
-    /// Selects sound type with instant UI feedback and async audio handling
+    /// Selects a sound: view concerns here, audio handled by the engine
     private func selectSound(_ type: SoundType) {
-        // Only prevent if same sound type
-        guard selectedSoundType != type else { return }
-        
-        // Record user interaction for screen dimming
+        guard audio.selectedSound != type else { return }
         recordUserInteraction()
-        
         triggerLightHapticFeedback()
-        
-        // Update UI immediately for instant feedback
-        selectedSoundType = type
-        
-        // Update Now Playing info with new sound type
-        updateNowPlayingInfo()
-        
-        // If audio is playing, restart with new sound using async
-        if isPlaying {
-            // Cancel any existing audio task
-            audioTask?.cancel()
-            
-            audioTask = Task { @MainActor in
-                await stopAudioSilently()
-                await startAudioQuick()
-            }
-        }
+        audio.selectSound(type)
     }
-    
-    // MARK: - Sleep Timer Control
 
-    /// Arms the sleep timer for the given minutes, or cancels it when `nil` ("Off").
+    /// Arms or clears the sleep timer via the engine
     private func setSleepTimer(_ minutes: Int?) {
         recordUserInteraction()
         triggerLightHapticFeedback()
-
-        guard let minutes else {
-            cancelSleepTimer()
-            return
-        }
-
-        // Re-arm: replace any running timer
-        sleepTimerTask?.cancel()
-        sleepTimerMinutes = minutes
-        sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
-
-        sleepTimerTask = Task { @MainActor in
-            do {
-                try await Task.sleep(for: .seconds(minutes * 60))
-            } catch {
-                return // cancelled — re-armed, turned off, or manual stop
-            }
-            guard !Task.isCancelled else { return }
-            await fadeOutAndStop()
-        }
-    }
-
-    /// Cancels the sleep timer without touching playback.
-    private func cancelSleepTimer() {
-        sleepTimerTask?.cancel()
-        sleepTimerTask = nil
-        sleepTimerEndDate = nil
-        sleepTimerMinutes = nil
-    }
-
-    /// Gently fades the current audio to silence over ~3s, then stops playback.
-    /// (Volumes are re-applied on every play, so no restore is needed here.)
-    @MainActor
-    private func fadeOutAndStop() async {
-        await fadeCurrentAudio(to: 0, duration: 3.0)
-
-        // Fully stop and update UI
-        await stopAudioSilently()
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isPlaying = false
-        }
-        cancelSleepTimer()
+        audio.setSleepTimer(minutes)
     }
 
     // MARK: - Haptic Feedback
@@ -1301,35 +961,6 @@ struct ContentView: View {
     private func triggerLightHapticFeedback() {
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
-    }
-    
-    // MARK: - Audio Preloading
-    
-    /// Efficiently preloads MP3 audio files to prevent hitches.
-    /// Playback volume is applied at play time (master volume × base gain).
-    private func preloadAudioFiles() {
-        let audioFiles: [(SoundType, String)] = [
-            (.fire, "fire"),
-            (.rain, "rain"),
-            (.birds, "birdsounds")
-        ]
-
-        for (soundType, filename) in audioFiles {
-            guard let path = Bundle.main.path(forResource: filename, ofType: "mp3") else {
-                print("Audio file not found: \(filename).mp3")
-                continue
-            }
-
-            let url = URL(fileURLWithPath: path)
-            do {
-                let player = try AVAudioPlayer(contentsOf: url)
-                player.prepareToPlay()
-                player.enableRate = false
-                preloadedPlayers[soundType] = player
-            } catch {
-                print("Failed to preload \(filename) audio: \(error.localizedDescription)")
-            }
-        }
     }
     
     // MARK: - Screen Management
@@ -1359,7 +990,7 @@ struct ContentView: View {
         lastUserInteraction = Date()
 
         // If audio is playing, reset the dimming timer
-        if isPlaying {
+        if audio.isPlaying {
             resetScreenDimTimer()
         }
     }
@@ -1387,170 +1018,6 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Remote Control / Now Playing
-    
-    /// Sets up Control Center and lock screen remote controls
-    private func setupRemoteCommandCenter() {
-        let commandCenter = MPRemoteCommandCenter.shared()
-
-        // Remove any existing targets first so handlers can't stack up if this runs again
-        commandCenter.playCommand.removeTarget(nil)
-        commandCenter.pauseCommand.removeTarget(nil)
-        commandCenter.togglePlayPauseCommand.removeTarget(nil)
-        commandCenter.nextTrackCommand.removeTarget(nil)
-        commandCenter.previousTrackCommand.removeTarget(nil)
-
-        // Enable play command
-        commandCenter.playCommand.isEnabled = true
-        commandCenter.playCommand.addTarget { _ in
-            if !self.isPlaying {
-                self.togglePlayback()
-            }
-            return .success
-        }
-
-        // Enable pause command
-        commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { _ in
-            if self.isPlaying {
-                self.togglePlayback()
-            }
-            return .success
-        }
-
-        // Enable toggle play/pause command
-        commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { _ in
-            self.togglePlayback()
-            return .success
-        }
-
-        // Enable next track command (cycle forward through sounds)
-        commandCenter.nextTrackCommand.isEnabled = true
-        commandCenter.nextTrackCommand.addTarget { _ in
-            self.cycleToNextSound()
-            return .success
-        }
-
-        // Enable previous track command (cycle backward through sounds)
-        commandCenter.previousTrackCommand.isEnabled = true
-        commandCenter.previousTrackCommand.addTarget { _ in
-            self.cycleToPreviousSound()
-            return .success
-        }
-
-        // Disable skip forward/backward (not applicable for continuous sounds)
-        commandCenter.skipForwardCommand.isEnabled = false
-        commandCenter.skipBackwardCommand.isEnabled = false
-
-        // Disable seek commands (not applicable for continuous sounds)
-        commandCenter.changePlaybackPositionCommand.isEnabled = false
-    }
-
-    /// Cycles to the next sound in the list
-    private func cycleToNextSound() {
-        let allSounds = SoundType.allCases
-        guard let currentIndex = allSounds.firstIndex(of: selectedSoundType) else { return }
-
-        let nextIndex = (currentIndex + 1) % allSounds.count
-        let nextSound = allSounds[nextIndex]
-
-        selectSound(nextSound)
-    }
-
-    /// Cycles to the previous sound in the list
-    private func cycleToPreviousSound() {
-        let allSounds = SoundType.allCases
-        guard let currentIndex = allSounds.firstIndex(of: selectedSoundType) else { return }
-
-        let previousIndex = (currentIndex - 1 + allSounds.count) % allSounds.count
-        let previousSound = allSounds[previousIndex]
-
-        selectSound(previousSound)
-    }
-    
-    /// Sets up listener for Siri intent notifications
-    private func setupSiriIntentListener() {
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("PlaySoundFromSiri"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            guard let userInfo = notification.userInfo,
-                  let soundTypeString = userInfo["soundType"] as? String else { return }
-
-            // Map sound type string to SoundType enum
-            let soundType: SoundType
-            switch soundTypeString.lowercased() {
-            case "white noise", "white":
-                soundType = .white
-            case "brown noise", "brown":
-                soundType = .brown
-            case "fire":
-                soundType = .fire
-            case "rain":
-                soundType = .rain
-            case "birds", "bird sounds":
-                soundType = .birds
-            default:
-                return
-            }
-
-            // Select the sound and start playing
-            self.selectSound(soundType)
-            if !self.isPlaying {
-                self.togglePlayback()
-            }
-        }
-    }
-
-    /// Updates Now Playing info for Control Center and lock screen
-    private func updateNowPlayingInfo() {
-        var nowPlayingInfo = [String: Any]()
-        nowPlayingInfo[MPMediaItemPropertyTitle] = "\(selectedSoundType.displayName) Noise"
-        nowPlayingInfo[MPMediaItemPropertyArtist] = "No-BS White Noise"
-        nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
-        
-        // Set album artwork to app logo
-        if let logoImage = UIImage(named: "logo") {
-            let artwork = MPMediaItemArtwork(boundsSize: logoImage.size) { _ in
-                return logoImage
-            }
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
-        }
-        
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
-    }
-    
-    // MARK: - Audio Interruption Handling
-    
-    /// Handles audio interruptions from phone calls, other apps, etc.
-    private func handleAudioInterruption(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-            return
-        }
-        
-        switch type {
-        case .began:
-            // Audio was interrupted (phone call, other app started playing)
-            if isPlaying {
-                // Update UI to reflect that audio is paused
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isPlaying = false
-                }
-                // Playback ended, so the armed timer no longer has anything to stop
-                cancelSleepTimer()
-            }
-        case .ended:
-            // Interruption ended - don't automatically resume, let user control
-            break
-        @unknown default:
-            break
-        }
-    }
 }
 
 // MARK: - Liquid Glass Helpers

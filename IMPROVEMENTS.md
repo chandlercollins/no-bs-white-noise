@@ -120,7 +120,7 @@ manual choice. Both now persist.
 
 ---
 
-## 3.5 Audio-engine refactor plan (v3.0 — planned 2026-07-11, not yet built)
+## 3.5 Audio-engine refactor (✅ BUILT 2026-07-12 — PR: followup/audio-engine-refactor)
 
 **Problem:** `createWhiteNoiseNode()`'s real-time render closure reads SwiftUI view state
 (`self.selectedSoundType`, `self.brownNoiseFilter`) from the audio thread — a latent data
