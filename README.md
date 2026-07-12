@@ -1,8 +1,29 @@
+<div align="center">
+
+<img src="app-icon.png" width="120" alt="No-BS White Noise app icon">
+
 # No-BS White Noise
 
-![No-BS White Noise](app-icon.png)
+**White noise that just works.** Fast, simple, focused.
 
-Fast, simple, focused. White noise that just works.
+![iOS 18.2+](https://img.shields.io/badge/iOS-18.2%2B-000000?logo=apple&logoColor=white)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-native-0A84FF?logo=swift&logoColor=white)
+![Design](https://img.shields.io/badge/Design-iOS%2026%20Liquid%20Glass-5E5CE6)
+![License: MIT](https://img.shields.io/badge/License-MIT-3FB950)
+
+</div>
+
+## Screenshots
+
+<div align="center">
+<img src="Screenshots/6.9-inch/01_main_light.png" width="200" alt="Main screen — light mode">
+&nbsp;&nbsp;
+<img src="Screenshots/6.9-inch/02_menu_light.png" width="200" alt="Sound selector — light mode">
+&nbsp;&nbsp;
+<img src="Screenshots/6.9-inch/04_menu_dark_fire.png" width="200" alt="Real Liquid Glass — dark mode">
+&nbsp;&nbsp;
+<img src="Screenshots/6.9-inch/05_main_dark.png" width="200" alt="Main screen — dark mode">
+</div>
 
 ## What It Does
 
@@ -10,8 +31,8 @@ Generates high-quality background noise for focus, sleep, or relaxation. Five so
 
 - **White Noise** — Classic broadband static
 - **Brown Noise** — Warmer, deeper rumble  
-- **Fire** — Authentic crackling fireplace
-- **Rain** — Natural rainfall with distant thunder
+- **Fire** — Crackling fireplace
+- **Rain** — Steady, even rainfall
 - **Birds** — Peaceful forest ambience
 
 ## Why It Exists
