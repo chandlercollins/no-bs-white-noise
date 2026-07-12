@@ -120,6 +120,34 @@ manual choice. Both now persist.
 
 ---
 
+## 3.5 Audio-engine refactor plan (v3.0 — planned 2026-07-11, not yet built)
+
+**Problem:** `createWhiteNoiseNode()`'s real-time render closure reads SwiftUI view state
+(`self.selectedSoundType`, `self.brownNoiseFilter`) from the audio thread — a latent data
+race — and the view struct is captured by `MPRemoteCommandCenter` / `NotificationCenter`
+closures.
+
+**Plan (≈1 day):**
+1. New `AudioEngine` class, `@Observable @MainActor`, owning: `isPlaying`,
+   `selectedSound`, `masterVolume`, sleep-timer state, the AVAudioEngine/players,
+   and all the current audio methods (start/stop/fade/preload/nowPlaying/remote commands).
+2. Render-thread safety: the source-node closure captures a small `final class
+   RenderState { let sound: Atomic<SoundType>; var brownFilter: Float }` (or
+   `os_unfair_lock`-guarded struct) owned by AudioEngine — never touches SwiftUI state.
+   `brownFilter` lives only on the render thread; `sound` is written from MainActor via
+   atomic store, read via atomic load per render cycle.
+3. ContentView becomes pure presentation: `@State private var engine = AudioEngine()`,
+   bindings for volume/sound/timer; remote-command + Siri-notification targets move into
+   AudioEngine (fixing the struct-capture smell).
+4. Tests: unit-test AudioEngine state transitions without UI (play→stop, timer expiry
+   cancels, volume math); keep the existing bundle smoke tests.
+5. Migration is mechanical (move code, rename `self.` references); screenshot set should
+   be pixel-identical — regenerate to confirm.
+
+**Risk:** low-medium; biggest care point is not regressing Control Center/Now Playing
+behavior. Do it as v3.0 groundwork alongside sound mixing (Tier 2 #5), which needs the
+same engine class.
+
 ## 4. Suggested next steps
 1. Ship this pass (real Liquid Glass + fixes + screenshots) as **2.1**.
 2. Fold in **sleep timer + fade** for **2.2** — the two features users will

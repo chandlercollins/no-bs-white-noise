@@ -5,6 +5,22 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-11 — Cycle 6: P4 complete — QUEUE FINISHED 🏁 (loop stopped)
+- **P4a — test target ✅:** hand-wired a unit-test target (synchronized `Tests/` group,
+  hosted in the app) + scheme TestAction. 8 launch-compliance smoke tests — enums, privacy
+  manifest bundled, export-compliance flag, background-audio mode, MP3s, artwork, version —
+  **all pass** via `xcodebuild test` (b21e231).
+- **P4b — refactor plan ✅:** audio-engine refactor (moving @State off the render thread)
+  written into IMPROVEMENTS.md §3.5 — plan only, targeted at v3.0.
+- **P4c — regression ✅:** Debug + Release builds, **0 warnings**; all 10 screenshots
+  regenerate **byte-identical** (deterministic pipeline); app installs/launches cleanly.
+- **P4d — LAUNCH_CHECKLIST.md ✅:** the exact morning steps only Chandler can do
+  (merge PR #1 → ears-on QA → archive/upload → App Store Connect → submit).
+- **Loop stopped.** The queue is exhausted; everything left requires Chandler's Apple ID
+  or ears. Start at LAUNCH_CHECKLIST.md. 🌅
+
+---
+
 ## 2026-07-11 — Cycle 5: P3 polish ✅ (verified)
 - **Reduce Motion:** pulse animations (play button + drawer handle) now skipped when
   `accessibilityReduceMotion` is on.
