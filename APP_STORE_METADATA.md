@@ -155,10 +155,11 @@ A finished, captioned 5-shot set is generated and ready to upload:
 App Store Connect requires only the 6.9" set for iPhone; it automatically
 down-scales these for 6.7"/6.5" listings, so no separate iPhone sizes are needed.
 
-### iPad (13") — OPTIONAL
+### iPad (13") — READY ✅
 - **Resolution**: 2064 x 2752 pixels
-- Regenerate with the iPad simulator using the same process below. Recommended
-  because the app ships as Universal (iPhone + iPad).
+- **Location**: [`Screenshots/13-inch/`](Screenshots/13-inch/)
+- Same five concepts as the iPhone set, captured from the iPad Pro 13-inch (M4)
+  simulator. Required if the app ships as Universal (it currently does).
 
 **How the screenshots were made / how to regenerate:**
 The raw frames are captured from the **iPhone 17 Pro Max** simulator using a

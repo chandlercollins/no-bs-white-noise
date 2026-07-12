@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Compose App Store marketing screenshots (iPhone 6.9", 1320x2868) from raw
-simulator captures.
+Compose App Store marketing screenshots from raw simulator captures.
+
+Devices:
+  - iPhone 6.9"  (1320x2868)  raw frames in  raw/        -> Screenshots/6.9-inch/
+  - iPad 13"     (2064x2752)  raw frames in  raw/ipad/   -> Screenshots/13-inch/
 
 Pipeline:
-  1. Capture raw frames from the iPhone 17 Pro Max simulator into `raw/`
-     using the DEBUG-only launch hook in ContentView (UITEST_* env vars).
-     See APP_STORE_METADATA.md for the exact simctl commands.
+  1. Capture raw frames from the simulator into the raw dir using the
+     DEBUG-only launch hook in ContentView (UITEST_* env vars) plus a 9:41
+     status-bar override. See APP_STORE_METADATA.md for the exact commands.
   2. Run this script:  python3 Tools/make_screenshots.py
-     Output lands in `Screenshots/6.9-inch/`.
 
 Requires Pillow (`pip3 install pillow`). Uses the system SF Pro font.
 """
@@ -16,11 +18,6 @@ import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "raw")                       # raw simulator captures
-OUT = os.path.join(ROOT, "Screenshots", "6.9-inch")   # finished marketing shots
-os.makedirs(OUT, exist_ok=True)
-
-W, H = 1320, 2868
 SFNS = "/System/Library/Fonts/SFNS.ttf"
 HELV = "/System/Library/Fonts/Helvetica.ttc"
 
@@ -38,16 +35,23 @@ CONFIGS = [
          title="No ads. No tracking.\nNo subscriptions.", sub="Just one fair price"),
 ]
 
+DEVICES = [
+    dict(name="iPhone 6.9\"", canvas=(1320, 2868),
+         raw_dir=os.path.join(ROOT, "raw"),
+         out_dir=os.path.join(ROOT, "Screenshots", "6.9-inch"),
+         shot_w=1004, shot_y=690, radius=88,
+         title_size=112, sub_size=46, caption_y=168),
+    dict(name="iPad 13\"", canvas=(2064, 2752),
+         raw_dir=os.path.join(ROOT, "raw", "ipad"),
+         out_dir=os.path.join(ROOT, "Screenshots", "13-inch"),
+         shot_w=1280, shot_y=700, radius=72,
+         title_size=132, sub_size=54, caption_y=150),
+]
+
 LIGHT_BG = ((233, 240, 251), (247, 249, 252))
 DARK_BG = ((22, 27, 42), (6, 8, 14))
 LIGHT_TITLE, LIGHT_SUB = (11, 18, 32), (92, 104, 128)
 DARK_TITLE, DARK_SUB = (255, 255, 255), (150, 162, 186)
-
-SHOT_W = 1004
-SHOT_H = int(SHOT_W * H / W)
-SHOT_X = (W - SHOT_W) // 2
-SHOT_Y = 690
-RADIUS = 88
 
 
 def load_font(size, weight="Bold"):
@@ -66,12 +70,13 @@ def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def gradient(top, bottom):
-    g = Image.new("RGB", (W, H), top)
+def gradient(size, top, bottom):
+    w, h = size
+    g = Image.new("RGB", size, top)
     px = g.load()
-    for y in range(H):
-        c = lerp(top, bottom, y / (H - 1))
-        for x in range(W):
+    for y in range(h):
+        c = lerp(top, bottom, y / (h - 1))
+        for x in range(w):
             px[x, y] = c
     return g
 
@@ -92,44 +97,53 @@ def draw_center(draw, cx, y, text, font, fill, line_gap=1.1):
     return y
 
 
-def main():
-    title_font = load_font(112, "Bold")
-    sub_font = load_font(46, "Medium")
+def compose(device):
+    W, H = device["canvas"]
+    os.makedirs(device["out_dir"], exist_ok=True)
+    title_font = load_font(device["title_size"], "Bold")
+    sub_font = load_font(device["sub_size"], "Medium")
+    shot_w = device["shot_w"]
+    shot_h = int(shot_w * H / W)
+    shot_x = (W - shot_w) // 2
+    shot_y = device["shot_y"]
+    radius = device["radius"]
 
     for i, cfg in enumerate(CONFIGS, 1):
-        theme = cfg["theme"]
-        src_path = os.path.join(SRC, cfg["src"])
+        src_path = os.path.join(device["raw_dir"], cfg["src"])
         if not os.path.exists(src_path):
             print("SKIP (missing raw):", src_path)
             continue
+        theme = cfg["theme"]
 
-        bg = gradient(*(LIGHT_BG if theme == "light" else DARK_BG))
+        bg = gradient((W, H), *(LIGHT_BG if theme == "light" else DARK_BG))
         draw = ImageDraw.Draw(bg)
         title_fill = LIGHT_TITLE if theme == "light" else DARK_TITLE
         sub_fill = LIGHT_SUB if theme == "light" else DARK_SUB
 
-        y = draw_center(draw, W / 2, 168, cfg["title"], title_font, title_fill, 1.08)
+        y = draw_center(draw, W / 2, device["caption_y"], cfg["title"], title_font, title_fill, 1.08)
         draw_center(draw, W / 2, y + 22, cfg["sub"], sub_font, sub_fill, 1.1)
 
-        shot = Image.open(src_path).convert("RGB").resize((SHOT_W, SHOT_H), Image.LANCZOS)
-        mask = rounded_mask((SHOT_W, SHOT_H), RADIUS)
+        shot = Image.open(src_path).convert("RGB").resize((shot_w, shot_h), Image.LANCZOS)
+        mask = rounded_mask((shot_w, shot_h), radius)
 
         shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         ImageDraw.Draw(shadow).rounded_rectangle(
-            [SHOT_X, SHOT_Y + 26, SHOT_X + SHOT_W, SHOT_Y + SHOT_H + 26],
-            radius=RADIUS, fill=(0, 0, 0, 150 if theme == "dark" else 60))
+            [shot_x, shot_y + 26, shot_x + shot_w, shot_y + shot_h + 26],
+            radius=radius, fill=(0, 0, 0, 150 if theme == "dark" else 60))
         shadow = shadow.filter(ImageFilter.GaussianBlur(40))
         bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
 
-        bg.paste(shot, (SHOT_X, SHOT_Y), mask)
+        bg.paste(shot, (shot_x, shot_y), mask)
         ImageDraw.Draw(bg).rounded_rectangle(
-            [SHOT_X, SHOT_Y, SHOT_X + SHOT_W, SHOT_Y + SHOT_H], radius=RADIUS,
+            [shot_x, shot_y, shot_x + shot_w, shot_y + shot_h], radius=radius,
             outline=(255, 255, 255) if theme == "dark" else (0, 0, 0), width=2)
 
-        out = os.path.join(OUT, f"{i:02d}_{cfg['src'].replace('.png', '')}.png")
+        out = os.path.join(device["out_dir"], f"{i:02d}_{cfg['src'].replace('.png', '')}.png")
         bg.save(out, "PNG")
-        print("wrote", out)
+        print("wrote", out, bg.size)
 
 
 if __name__ == "__main__":
-    main()
+    for device in DEVICES:
+        print(f"--- {device['name']} ---")
+        compose(device)

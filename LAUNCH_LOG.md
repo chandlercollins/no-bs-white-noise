@@ -5,6 +5,19 @@ Branch: `overnight/launch-prep` — never merged to `main` automatically; review
 
 ---
 
+## 2026-07-11 — Cycle 2: P1 iPad screenshots ✅ (verified)
+- Captured all five marketing states on the **iPad Pro 13-inch (M4)** simulator at the
+  exact App Store 13" spec (2064×2752), clean 9:41 status bar, via the DEBUG launch hook.
+- Refactored `Tools/make_screenshots.py` to be device-parametric (iPhone + iPad configs).
+  **Verified the iPhone 6.9" set is byte-identical** after the refactor (git shows no diff).
+- Finished set in `Screenshots/13-inch/`; raw frames in `raw/ipad/` (gitignored).
+- Visually verified the iPad composite (captions, floating frame, dark Fire state).
+- `APP_STORE_METADATA.md` updated: iPad section now READY with location.
+- **Verified:** script ran clean; both sets at exact spec; iPad app renders correctly (1.6× scaling).
+- **Next up:** P2 — sleep timer (15/30/45/60/90/120 min with fade-out), then fade in/out, then volume.
+
+---
+
 ## 2026-07-11 — Cycle 1: P0 compliance ✅ (verified)
 - Added `Sources/PrivacyInfo.xcprivacy` — `NSPrivacyTracking=false`, no collected data
   types, declares the UserDefaults required-reason API (`NSPrivacyAccessedAPICategoryUserDefaults`,
