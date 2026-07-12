@@ -22,21 +22,21 @@ This app harkens back to a time when software could be built for a single purpos
 
 ## Design
 
-Built for iOS 26 with Apple's revolutionary **Liquid Glass** design system:
+Built for iOS 26 with Apple's **Liquid Glass** design system — the genuine system material, not a lookalike:
 
-- **Translucent Materials** — Layers of ultra-thin glass that refract surrounding content
-- **Dynamic Reflections** — Specular highlights and real-time light responses
+- **Real `glassEffect`** — The play button, sound selector, and menu use Apple's live Liquid Glass with interactive touch response and tinting
+- **`GlassEffectContainer`** — Nearby glass shapes blend and morph together
 - **Fluid Animations** — Smooth spring-based transitions with perfect damping
-- **Atmospheric Depth** — Multi-layer shadows and gradients for dimensional UI
-- **Adaptive Themes** — Seamlessly morphs between light, dark, and system modes
+- **Adaptive Themes** — Clean light and dark modes that match your system on first launch
+- **Graceful fallback** — On iOS 18.2–25, controls fall back to a translucent-material rendering via `#available` checks
 
-Every interface element—from the play button to the sound selector—features authentic glass-like depth with refraction, reflection, and translucency effects that bring a tactile, premium feel to the experience.
+Every interface element—from the play button to the sound selector—uses authentic Liquid Glass depth, refraction, and translucency for a tactile, premium feel.
 
 ## Technical Details
 
 - **Pure Swift** — Built with modern iOS development best practices
-- **iOS 26 Liquid Glass** — Advanced material effects with `.ultraThinMaterial` and `.thinMaterial`
-- **Multi-layer visual effects** — Radial and linear gradients for realistic glass refraction
+- **iOS 26 Liquid Glass** — Genuine `.glassEffect` and `GlassEffectContainer`, gated with `#available` for a clean fallback on earlier iOS
+- **Voice & system integration** — Siri App Intents, Control Center, and Lock Screen playback controls
 - **Optimized for overnight use** — Battery-efficient audio processing
 - **Works in silent mode** — Uses media playback audio session
 - **Instant sound switching** — No glitchy transitions between generated sounds
@@ -122,4 +122,4 @@ Control playback directly from your wrist without pulling out your phone.
 
 **Philosophy**: Every feature must earn its place by enhancing focus without adding complexity. If it doesn't serve the core mission—helping you concentrate—it doesn't belong.
 
-Have a suggestion? [Open an issue](https://github.com/YOUR_USERNAME/no-bs-white-noise/issues) and let's discuss.
+Have a suggestion? [Open an issue](https://github.com/chandlercollins/no-bs-white-noise/issues) and let's discuss.

@@ -51,16 +51,15 @@ struct ContentView: View {
     @State private var currentAudioPlayer: AVAudioPlayer?
     @State private var preloadedPlayers: [SoundType: AVAudioPlayer] = [:]
     @State private var brownNoiseFilter: Float = 0.0
-    @State private var frameCounter: Int = 0
-    
+
     // MARK: - UI State (Optimized)
     @State private var isPlaying = false
     @State private var pulseAnimation = false
     @State private var handlePulseAnimation = false
     @State private var isTransitioning = false
-    @State private var themeMode: ThemeMode = .light
+    @AppStorage("themeMode") private var themeMode: ThemeMode = .light
     @State private var themeButtonOpacity: Double = 0.6
-    @State private var selectedSoundType: SoundType = .white
+    @AppStorage("selectedSound") private var selectedSoundType: SoundType = .white
     @State private var isMenuExpanded = false
     @State private var lastUserInteraction: Date = Date()
 
@@ -136,6 +135,10 @@ struct ContentView: View {
                 themeMode = systemColorScheme == .dark ? .dark : .light
                 UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
             }
+
+            #if DEBUG
+            applyScreenshotStateIfNeeded()
+            #endif
 
             // Initialize screen management
             setupScreenManagement()
@@ -270,104 +273,35 @@ struct ContentView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.78), value: effectiveColorScheme)
     }
     
-    /// Play/Stop button with immersive Liquid Glass design
+    /// Play/Stop button — the hero control, rendered in genuine Liquid Glass on iOS 26.
     private var playStopButton: some View {
-        Button(action: togglePlayback) {
+        let stateColor = isPlaying ? playButtonStopColor : playButtonPlayColor
+        return Button(action: togglePlayback) {
             ZStack {
-                // Outer glow ring for depth
+                // Soft colored glow so the hero reads on both light and dark backgrounds
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.3),
-                                (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.0)
-                            ],
+                            colors: [stateColor.opacity(0.35), stateColor.opacity(0.0)],
                             center: .center,
                             startRadius: playButtonSize * 0.35,
-                            endRadius: playButtonSize * 0.6
+                            endRadius: playButtonSize * 0.68
                         )
                     )
-                    .frame(width: playButtonSize * 1.2, height: playButtonSize * 1.2)
-                    .blur(radius: 20)
-                    .opacity(pulseAnimation ? 0.6 : 0.3)
+                    .frame(width: playButtonSize * 1.3, height: playButtonSize * 1.3)
+                    .blur(radius: 24)
+                    .opacity(pulseAnimation ? 0.75 : 0.45)
                     .animation(.easeInOut(duration: 0.25), value: isPlaying)
 
-                // Main glass button layers
-                ZStack {
-                    // Base color layer with gradient
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.9),
-                                    (isPlaying ? playButtonStopColor : playButtonPlayColor)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .animation(.easeInOut(duration: 0.25), value: isPlaying)
-
-                    // Glass refraction layer
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.25),
-                                    Color.white.opacity(0.05),
-                                    Color.clear,
-                                    Color.black.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    // Specular highlight
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.white.opacity(0.4),
-                                    Color.white.opacity(0.1),
-                                    Color.clear
-                                ],
-                                center: .init(x: 0.3, y: 0.3),
-                                startRadius: 0,
-                                endRadius: playButtonSize * 0.4
-                            )
-                        )
-
-                    // Ultra thin material for glass effect
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.3)
-
-                    // Icon with enhanced depth
-                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                        .font(.system(size: playButtonIconSize, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.95),
-                                    Color.white.opacity(0.85)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
-                        .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.5), radius: 8, x: 0, y: 0)
-                        .animation(.easeInOut(duration: 0.25), value: isPlaying)
-                }
-                .frame(width: playButtonSize, height: playButtonSize)
-                .shadow(color: (isPlaying ? playButtonStopColor : playButtonPlayColor).opacity(0.3), radius: 20, x: 0, y: 10)
-                .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: 15)
-                .animation(.easeInOut(duration: 0.25), value: isPlaying)
-                .scaleEffect(pulseAnimation ? (isPlaying ? 1.03 : 1.02) : 1.0)
+                playButtonSurface(stateColor: stateColor)
+                    .shadow(color: stateColor.opacity(0.35), radius: 20, x: 0, y: 10)
+                    .shadow(color: .black.opacity(0.15), radius: 30, x: 0, y: 16)
+                    .scaleEffect(pulseAnimation ? (isPlaying ? 1.03 : 1.02) : 1.0)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(isPlaying ? "Stop" : "Play")
+        .accessibilityHint(isPlaying ? "Stops the sound" : "Plays \(selectedSoundType.displayName) noise")
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isPlaying)
         .animation(
             pulseAnimation ?
@@ -384,6 +318,33 @@ struct ContentView: View {
             }
         }
     }
+
+    /// The circular hero surface: a tinted, interactive Liquid Glass circle on iOS 26,
+    /// with a layered gradient fallback on earlier systems.
+    @ViewBuilder
+    private func playButtonSurface(stateColor: Color) -> some View {
+        let icon = Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+            .font(.system(size: playButtonIconSize, weight: .semibold))
+            .foregroundStyle(.white)
+            .contentTransition(.symbolEffect(.replace))
+            .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 2)
+
+        if #available(iOS 26.0, *) {
+            ZStack {
+                Circle().fill(stateColor.opacity(0.55))
+                icon
+            }
+            .frame(width: playButtonSize, height: playButtonSize)
+            .glassEffect(.regular.tint(stateColor).interactive(), in: Circle())
+        } else {
+            ZStack {
+                Circle().fill(stateColor.gradient)
+                Circle().fill(.ultraThinMaterial).opacity(0.25)
+                icon
+            }
+            .frame(width: playButtonSize, height: playButtonSize)
+        }
+    }
     
     
     // MARK: - Theme Components
@@ -391,65 +352,8 @@ struct ContentView: View {
     /// Theme toggle button with Liquid Glass enhancement
     private var themeToggleButton: some View {
         Button(action: cycleThemeMode) {
-            ZStack {
-                // Glass background layers
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                effectiveColorScheme == .dark ?
-                                    Color.white.opacity(0.1) : Color.white.opacity(0.6),
-                                effectiveColorScheme == .dark ?
-                                    Color.white.opacity(0.05) : Color.white.opacity(0.4)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                // Material layer
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.5)
-
-                // Specular highlight
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ],
-                            center: .init(x: 0.35, y: 0.35),
-                            startRadius: 0,
-                            endRadius: themeButtonSize * 0.4
-                        )
-                    )
-
-                // Icon with depth
-                Image(systemName: themeMode.iconName)
-                    .font(.system(size: themeButtonIconSize, weight: .medium))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color.secondary.opacity(0.95),
-                                Color.secondary.opacity(0.75)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .shadow(
-                        color: effectiveColorScheme == .dark ?
-                            .white.opacity(0.1) : .black.opacity(0.15),
-                        radius: 1,
-                        x: 0,
-                        y: 0.5
-                    )
-            }
-            .frame(width: themeButtonSize, height: themeButtonSize)
-            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-            .scaleEffect(themeButtonOpacity == 1.0 ? 1.12 : 1.0)
+            themeToggleSurface
+                .scaleEffect(themeButtonOpacity == 1.0 ? 1.12 : 1.0)
         }
         .buttonStyle(.plain)
         .opacity(themeButtonOpacity)
@@ -457,19 +361,20 @@ struct ContentView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.78), value: effectiveColorScheme)
         .accessibilityLabel("Theme: \(themeMode.displayName)")
         .accessibilityHint("Double tap to switch between light and dark themes")
-        .onTapGesture {
-            // Briefly brighten on tap with spring animation
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.65)) {
-                themeButtonOpacity = 1.0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
-                    themeButtonOpacity = 0.6
-                }
-            }
-        }
     }
-    
+
+    /// Circular theme-toggle surface using genuine Liquid Glass on iOS 26.
+    @ViewBuilder
+    private var themeToggleSurface: some View {
+        Image(systemName: themeMode.iconName)
+            .font(.system(size: themeButtonIconSize, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.secondary)
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: themeButtonSize, height: themeButtonSize)
+            .glassCircle()
+    }
+
     // MARK: - Theme Management
     
     /// Returns the appropriate ColorScheme based on current theme mode
@@ -531,16 +436,6 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    /// Text color with WCAG-compliant contrast
-    private var textColorForCurrentTheme: Color {
-        effectiveColorScheme == .dark ? .white : .black
-    }
-    
-    /// Button background color for theme toggle
-    private var buttonBackgroundColorForCurrentTheme: Color {
-        effectiveColorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05)
-    }
-    
     /// Play button color with WCAG-compliant contrast
     private var playButtonPlayColor: Color {
         effectiveColorScheme == .dark ? Color.blue.opacity(0.8) : Color.blue
@@ -591,12 +486,6 @@ struct ContentView: View {
     private var themeButtonIconSize: CGFloat {
         let baseSize: CGFloat = 22 // .title2 equivalent
         return baseSize * scalingFactor
-    }
-    
-    /// Theme button stroke width that scales with device
-    private var themeButtonStrokeWidth: CGFloat {
-        let baseWidth: CGFloat = 1
-        return baseWidth * scalingFactor
     }
     
     /// Play button size that scales with device
@@ -652,64 +541,6 @@ struct ContentView: View {
         let baseHeight: CGFloat = 160
         return baseHeight * scalingFactor
     }
-    
-    /// Menu caret icon size that scales with device
-    private var menuCaretIconSize: CGFloat {
-        let baseSize: CGFloat = 22 // .title2 equivalent
-        return baseSize * scalingFactor
-    }
-    
-    /// Menu top padding that scales with device
-    private var menuTopPadding: CGFloat {
-        let basePadding: CGFloat = 16
-        return basePadding * scalingFactor
-    }
-    
-    
-    /// Immersive Liquid Glass background for menu overlay with depth and refraction
-    private var liquidGlassBackground: some View {
-        ZStack {
-            // Base translucent layer
-            Rectangle()
-                .fill(effectiveColorScheme == .dark ? .ultraThinMaterial : .thinMaterial)
-
-            // Gradient overlay for depth and color refraction
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            effectiveColorScheme == .dark ?
-                                Color.white.opacity(0.05) : Color.white.opacity(0.4),
-                            effectiveColorScheme == .dark ?
-                                Color.clear : Color.white.opacity(0.2)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-            // Edge glow effect for glass borders
-            Rectangle()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(effectiveColorScheme == .dark ? 0.2 : 0.4),
-                            Color.clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-                .blur(radius: 0.5)
-        }
-    }
-    
-    /// Menu handle color with proper contrast
-    private var menuHandleColor: Color {
-        effectiveColorScheme == .dark ? Color.white.opacity(0.4) : Color.black.opacity(0.3)
-    }
-    
     
     /// Bottom menu button with Liquid Glass styling
     private var bottomMenuButton: some View {
@@ -813,26 +644,9 @@ struct ContentView: View {
                 Spacer()
 
                 menuContent
-                    .background(
-                        ZStack {
-                            liquidGlassBackground
-
-                            // Additional specular highlight at top edge
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(effectiveColorScheme == .dark ? 0.08 : 0.3),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 60)
-                            .frame(maxHeight: .infinity, alignment: .top)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                        .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: -10)
-                        .shadow(color: .black.opacity(0.1), radius: 50, x: 0, y: -20)
-                    )
+                    .glassPanel(cornerRadius: 28)
+                    .shadow(color: .black.opacity(0.2), radius: 30, x: 0, y: -10)
+                    .shadow(color: .black.opacity(0.1), radius: 50, x: 0, y: -20)
             }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -857,19 +671,21 @@ struct ContentView: View {
             // Center the sound buttons vertically in remaining space
             Spacer()
             
-            // Sound selector - clean layout
-            HStack {
-                soundButton(.white)
-                Spacer()
-                soundButton(.brown)
-                Spacer()
-                soundButton(.fire)
-                Spacer()
-                soundButton(.rain)
-                Spacer()
-                soundButton(.birds)
+            // Sound selector — grouped so the glass circles blend and morph together
+            glassGroup {
+                HStack {
+                    soundButton(.white)
+                    Spacer()
+                    soundButton(.brown)
+                    Spacer()
+                    soundButton(.fire)
+                    Spacer()
+                    soundButton(.rain)
+                    Spacer()
+                    soundButton(.birds)
+                }
+                .padding(.horizontal, soundMenuHorizontalPadding)
             }
-            .padding(.horizontal, soundMenuHorizontalPadding)
             
             // Equal space below to center the buttons
             Spacer()
@@ -879,150 +695,36 @@ struct ContentView: View {
         .ignoresSafeArea(.container, edges: .horizontal)
     }
     
-    /// Sound button with immersive Liquid Glass design
+    /// Sound button — a genuine Liquid Glass circle, tinted when selected (iOS 26).
     private func soundButton(_ type: SoundType) -> some View {
-        Button(action: { selectSound(type) }) {
+        let isSelected = selectedSoundType == type
+        let tint = soundBackgroundColor(for: type)
+        return Button(action: { selectSound(type) }) {
             VStack(spacing: 12) {
-                ZStack {
-                    let isSelected = selectedSoundType == type
-
-                    // Outer glow for selected state
-                    if isSelected {
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        soundBackgroundColor(for: type).opacity(0.4),
-                                        soundBackgroundColor(for: type).opacity(0.0)
-                                    ],
-                                    center: .center,
-                                    startRadius: soundButtonSize * 0.3,
-                                    endRadius: soundButtonSize * 0.7
-                                )
-                            )
-                            .frame(width: soundButtonSize * 1.3, height: soundButtonSize * 1.3)
-                            .blur(radius: 12)
-                    }
-
-                    // Main button glass layers
-                    ZStack {
-                        // Base layer
-                        Circle()
-                            .fill(
-                                isSelected ?
-                                LinearGradient(
-                                    colors: [
-                                        soundBackgroundColor(for: type).opacity(0.9),
-                                        soundBackgroundColor(for: type)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ) :
-                                LinearGradient(
-                                    colors: [
-                                        effectiveColorScheme == .dark ?
-                                            Color.white.opacity(0.08) : Color.white.opacity(0.5),
-                                        effectiveColorScheme == .dark ?
-                                            Color.white.opacity(0.04) : Color.white.opacity(0.3)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-
-                        // Material layer for glass effect
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .opacity(isSelected ? 0.2 : 0.6)
-
-                        // Glass refraction
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(isSelected ? 0.3 : 0.2),
-                                        Color.clear,
-                                        Color.black.opacity(0.05)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-
-                        // Specular highlight
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color.white.opacity(isSelected ? 0.4 : 0.3),
-                                        Color.clear
-                                    ],
-                                    center: .init(x: 0.35, y: 0.35),
-                                    startRadius: 0,
-                                    endRadius: soundButtonSize * 0.35
-                                )
-                            )
-
-                        // Icon with enhanced depth
-                        Text(iconForSound(type))
-                            .font(.system(size: soundButtonIconSize, weight: .semibold))
-                            .foregroundStyle(
-                                isSelected ?
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.95),
-                                        Color.white.opacity(0.85)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ) :
-                                LinearGradient(
-                                    colors: [
-                                        Color.primary.opacity(0.9),
-                                        Color.primary.opacity(0.75)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .shadow(
-                                color: isSelected ? .black.opacity(0.4) : .black.opacity(0.1),
-                                radius: isSelected ? 2 : 1,
-                                x: 0,
-                                y: 1
-                            )
-                            .scaleEffect(isSelected ? 1.08 : 1.0)
-                    }
+                Text(iconForSound(type))
+                    .font(.system(size: soundButtonIconSize, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.85))
+                    .scaleEffect(isSelected ? 1.08 : 1.0)
                     .frame(width: soundButtonSize, height: soundButtonSize)
+                    .glassCircle(tint: isSelected ? tint : nil)
                     .shadow(
-                        color: isSelected ? soundBackgroundColor(for: type).opacity(0.3) : .black.opacity(0.05),
-                        radius: isSelected ? 12 : 6,
+                        color: isSelected ? tint.opacity(0.35) : .black.opacity(0.05),
+                        radius: isSelected ? 12 : 5,
                         x: 0,
                         y: isSelected ? 6 : 3
                     )
-                }
-                .frame(width: soundButtonSize, height: soundButtonSize)
 
-                // Label with subtle glass effect
                 Text(type.displayName)
                     .font(.system(.caption2, design: .default, weight: .medium))
-                    .foregroundStyle(
-                        selectedSoundType == type ?
-                        .primary : .secondary
-                    )
-                    .shadow(
-                        color: effectiveColorScheme == .dark ? .black.opacity(0.3) : .clear,
-                        radius: 1,
-                        x: 0,
-                        y: 0.5
-                    )
+                    .foregroundStyle(isSelected ? .primary : .secondary)
                     .multilineTextAlignment(.center)
             }
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedSoundType == type)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isSelected)
         .accessibilityLabel("\(type.displayName) sound")
         .accessibilityHint("Select \(type.displayName.lowercased()) sound")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
     
     /// Icon for sounds
@@ -1046,6 +748,39 @@ struct ContentView: View {
         case .birds: return .green
         }
     }
+
+    /// Groups nearby Liquid Glass shapes so they blend and morph together (iOS 26+).
+    /// On earlier systems the content is returned unwrapped.
+    @ViewBuilder
+    private func glassGroup<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 18) {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+
+    #if DEBUG
+    /// Applies deterministic UI state from the launch environment so App Store
+    /// screenshots can be captured for each state. Compiled only in DEBUG builds.
+    private func applyScreenshotStateIfNeeded() {
+        let env = ProcessInfo.processInfo.environment
+        if let theme = env["UITEST_THEME"] {
+            themeMode = (theme == "dark") ? .dark : .light
+        }
+        if let sound = env["UITEST_SOUND"], let type = SoundType(rawValue: sound) {
+            selectedSoundType = type
+        }
+        if env["UITEST_MENU"] == "1" {
+            isMenuExpanded = true
+        }
+        if env["UITEST_PLAYING"] == "1" {
+            isPlaying = true
+        }
+    }
+    #endif
 
     // MARK: - Audio Control
     
@@ -1114,41 +849,6 @@ struct ContentView: View {
         }
     }
 
-    /// Starts audio with proper async handling and error recovery (legacy method)
-    @MainActor
-    private func startAudio() async {
-        do {
-            // Configure audio session for Now Playing / Control Center visibility
-            let audioSession = AVAudioSession.sharedInstance()
-            // Note: Removed .mixWithOthers to show in Now Playing/Control Center
-            // Future: Make this toggleable in settings to allow mixing with other audio
-            try audioSession.setCategory(.playback, mode: .default, options: [])
-            try audioSession.setActive(true)
-
-            // Initialize brown noise filter to prevent initial click
-            if selectedSoundType == .brown && brownNoiseFilter == 0.0 {
-                brownNoiseFilter = Float.random(in: -0.05...0.05)
-            }
-
-            // Use preloaded player for MP3 files
-            if let player = preloadedPlayers[selectedSoundType] {
-                await playMPAudio(player: player)
-            } else {
-                // Use audio engine for generated sounds
-                try await playGeneratedAudio()
-            }
-
-            // Update UI state
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlaying = true
-            }
-
-        } catch {
-            print("Audio start error: \(error.localizedDescription)")
-            isPlaying = false
-        }
-    }
-    
     /// Plays MP3 audio using preloaded AVAudioPlayer with async handling
     private func playMPAudio(player: AVAudioPlayer) async {
         // Stop any current audio first
@@ -1259,17 +959,6 @@ struct ContentView: View {
         await stopAudioSilently()
     }
 
-    /// Stops audio with proper async handling (legacy method)
-    @MainActor
-    private func stopAudio() async {
-        // Update UI state
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isPlaying = false
-        }
-
-        await stopAudioSilently()
-    }
-    
     /// Stops audio without updating UI state (for internal use)
     private func stopAudioSilently() async {
         // Stop current audio player
@@ -1316,14 +1005,24 @@ struct ContentView: View {
     
     // MARK: - Theme Actions
     
-    /// Cycles through system, light, and dark theme modes
+    /// Toggles between light and dark theme modes
     private func cycleThemeMode() {
         // Record user interaction for screen dimming
         recordUserInteraction()
 
         triggerLightHapticFeedback()
 
-        // Simple toggle between light and dark
+        // Briefly brighten the toggle on tap for tactile feedback
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.65)) {
+            themeButtonOpacity = 1.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
+                themeButtonOpacity = 0.6
+            }
+        }
+
+        // Toggle between light and dark
         switch themeMode {
         case .light:
             themeMode = .dark
@@ -1368,7 +1067,7 @@ struct ContentView: View {
             
             audioTask = Task { @MainActor in
                 await stopAudioSilently()
-                await startAudio()
+                await startAudioQuick()
             }
         }
     }
@@ -1392,9 +1091,9 @@ struct ContentView: View {
     /// Efficiently preloads MP3 audio files to prevent hitches
     private func preloadAudioFiles() {
         let audioFiles: [(SoundType, String, Float)] = [
-            (.fire, "fire", 0.8),
-            (.rain, "rain", 0.4),
-            (.birds, "birdsounds", 0.6)
+            (.fire, "fire", 0.3),
+            (.rain, "rain", 0.3),
+            (.birds, "birdsounds", 0.3)
         ]
         
         for (soundType, filename, volume) in audioFiles {
@@ -1427,17 +1126,13 @@ struct ContentView: View {
     
     /// Updates screen dimming behavior when playback state changes
     private func updateScreenDimming(isPlaying: Bool) {
-        print("DEBUG: updateScreenDimming called with isPlaying: \(isPlaying)")
         if isPlaying {
             // When audio starts, prevent immediate dimming but allow delayed dimming
-            print("DEBUG: Audio started - resetting screen dim timer")
             resetScreenDimTimer()
         } else {
             // When audio stops, return to normal system dimming
-            print("DEBUG: Audio stopped - returning to normal screen dimming")
             DispatchQueue.main.async {
                 UIApplication.shared.isIdleTimerDisabled = false
-                print("DEBUG: Screen timeout enabled immediately (audio stopped)")
             }
         }
     }
@@ -1445,11 +1140,9 @@ struct ContentView: View {
     /// Records user interaction and resets screen dim timer
     private func recordUserInteraction() {
         lastUserInteraction = Date()
-        print("DEBUG: User interaction recorded, isPlaying: \(isPlaying)")
-        
+
         // If audio is playing, reset the dimming timer
         if isPlaying {
-            print("DEBUG: Audio is playing - resetting screen dim timer due to user interaction")
             resetScreenDimTimer()
         }
     }
@@ -1461,8 +1154,7 @@ struct ContentView: View {
         
         // Prevent immediate dimming
         UIApplication.shared.isIdleTimerDisabled = true
-        print("DEBUG: Screen timeout disabled - preventing dimming for 30 seconds")
-        
+
         // Use structured concurrency for reliable execution
         screenDimTask = Task {
             do {
@@ -1470,7 +1162,6 @@ struct ContentView: View {
                 await MainActor.run {
                     if !Task.isCancelled {
                         UIApplication.shared.isIdleTimerDisabled = false
-                        print("DEBUG: Screen timeout re-enabled - allowing system dimming")
                     }
                 }
             } catch {
@@ -1484,6 +1175,13 @@ struct ContentView: View {
     /// Sets up Control Center and lock screen remote controls
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
+
+        // Remove any existing targets first so handlers can't stack up if this runs again
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
 
         // Enable play command
         commandCenter.playCommand.isEnabled = true
@@ -1632,6 +1330,46 @@ struct ContentView: View {
             break
         @unknown default:
             break
+        }
+    }
+}
+
+// MARK: - Liquid Glass Helpers
+
+/// Builds a configured `Glass` value. Kept separate so call sites stay readable.
+@available(iOS 26.0, *)
+private func makeGlass(tint: Color?, interactive: Bool) -> Glass {
+    var glass: Glass = .regular
+    if let tint {
+        glass = glass.tint(tint)
+    }
+    if interactive {
+        glass = glass.interactive()
+    }
+    return glass
+}
+
+private extension View {
+    /// Applies a genuine Liquid Glass effect clipped to a circle on iOS 26+,
+    /// falling back to a translucent material on earlier systems.
+    @ViewBuilder
+    func glassCircle(tint: Color? = nil, interactive: Bool = true) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(makeGlass(tint: tint, interactive: interactive), in: Circle())
+        } else {
+            background(.ultraThinMaterial, in: Circle())
+        }
+    }
+
+    /// Applies a genuine Liquid Glass effect clipped to a rounded rectangle on iOS 26+,
+    /// falling back to a translucent material on earlier systems.
+    @ViewBuilder
+    func glassPanel(cornerRadius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular, in: shape)
+        } else {
+            background(.ultraThinMaterial, in: shape)
         }
     }
 }

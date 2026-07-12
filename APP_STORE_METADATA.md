@@ -1,4 +1,4 @@
-# App Store Metadata for No-BS White Noise v2.0
+# App Store Metadata for No-BS White Noise v2.1
 
 ## Basic Information
 
@@ -12,8 +12,8 @@
 `com.chandlercollins.No-BS-White-Noise`
 
 ### Version
-- **Marketing Version**: 2.0
-- **Build Number**: 1
+- **Marketing Version**: 2.1
+- **Build Number**: 3
 
 ### Privacy Policy URL
 Not required (no data collection)
@@ -47,53 +47,42 @@ Not required (no data collection)
 
 ## App Description (4000 characters max)
 
-Fast, simple, focused. White noise that just works.
+White noise that just works. No sign-up, no subscriptions, no BS.
 
-Generate high-quality background noise for focus, sleep, or relaxation. Five sounds, one purpose: helping you concentrate.
+Tap one button and get clean, high-quality background noise for focus, sleep, or calm. Five sounds, one purpose: helping you concentrate.
 
 • White Noise — Classic broadband static
 • Brown Noise — Warmer, deeper rumble
-• Fire — Authentic crackling fireplace
-• Rain — Natural rainfall with distant thunder
+• Fire — Crackling fireplace
+• Rain — Steady, even rainfall
 • Birds — Peaceful forest ambience
 
-**LIQUID GLASS DESIGN**
+WHY IT EXISTS
 
-Built for iOS 26 with Apple's revolutionary Liquid Glass design system. Every interface element features authentic glass-like depth with refraction, reflection, and translucency effects that bring a tactile, premium feel to the experience.
+Most white-noise apps are buried under ads, accounts, paywalls, and pop-ups. This one isn't. It harkens back to a time when an app could do one thing and do it fast. Inspired by Craig Mod's philosophy of fast software, it prioritizes speed and simplicity over feature bloat.
 
-• Translucent materials that refract surrounding content
-• Dynamic reflections with specular highlights
-• Fluid spring-based animations with perfect damping
-• Multi-layer shadows and gradients for dimensional UI
-• Seamless morphing between light, dark, and system modes
+No tracking. No analytics. No ads. No account. Just one fair price.
 
-**WHY IT EXISTS**
+BUILT FOR iOS 26
 
-This app harkens back to a time when software could be built for a single purpose and be fast, simple, and lightweight. Inspired by Craig Mod's philosophy on fast software, it prioritizes speed and simplicity over feature bloat.
+Every control is rendered in Apple's real Liquid Glass — the genuine system material, not a lookalike. The play button, sound selector, and menu use live translucency and refraction that respond to light as you move.
 
-No tracking. No analytics. No ads. No BS. Just one fair price.
+DESIGNED TO GET OUT OF YOUR WAY
 
-**TECHNICAL HIGHLIGHTS**
+• Launches instantly and starts with a single tap
+• Switches sounds with no glitchy gap
+• Runs all night without draining your battery
+• Keeps playing in the background and in silent mode
+• Full Control Center and Lock Screen playback controls
+• Start any sound hands-free with Siri
+• Gorgeous in both light and dark mode
+• VoiceOver-friendly, accessible controls throughout
 
-• Pure Swift with modern iOS development best practices
-• iOS 26 Liquid Glass with advanced material effects
-• Battery-efficient overnight use
-• Works in silent mode
-• Instant sound switching without glitchy transitions
-• High-quality procedural audio for tiny app size
-• WCAG-compliant accessibility throughout
-• Control Center and lock screen integration
-• Supports background audio playback
+PRIVACY BY DEFAULT
 
-**DESIGN PHILOSOPHY**
+The app collects nothing because it is built to collect nothing. No accounts, no network requests, no third-party SDKs, no analytics. Your preferences never leave your device.
 
-Software should lessen burdens, not increase them. This app:
-
-• Launches instantly
-• Switches sounds without lag
-• Runs all night without draining battery
-• Works exactly as expected, every time
-• Gets out of your way so you can focus on what matters
+Software should lessen burdens, not add to them. This one launches fast, works exactly as expected every time, and gets out of your way so you can focus on what matters.
 
 Built for people who value their time and attention.
 
@@ -101,7 +90,7 @@ Built for people who value their time and attention.
 
 ## Promotional Text (170 characters, updatable without review)
 
-**New Liquid Glass design for iOS 26! Beautiful translucent interface with authentic glass-like depth. Five premium sounds. Zero BS.**
+**Now with real iOS 26 Liquid Glass — genuine translucent controls, not a lookalike. Plus Siri, Control Center, and Lock Screen playback. Five sounds, zero BS.**
 
 ---
 
@@ -111,18 +100,15 @@ white noise,brown noise,focus,sleep,study,meditation,rain sounds,fire,relaxation
 
 ---
 
-## What's New in Version 2.0
+## What's New in Version 2.1
 
-**Complete redesign with iOS 26 Liquid Glass**
+**Real Liquid Glass, and more ways to play**
 
-• Stunning new glass-like interface with depth and translucency
-• Multi-layer visual effects throughout the app
-• Enhanced play button with refraction and specular highlights
-• Beautiful translucent menu with gradient depth
-• Improved sound selection with glass aesthetics
-• Fluid spring animations for smooth interactions
-• Full light/dark/system theme support
-• All while maintaining the speed and simplicity you love
+• Rebuilt the play button, sound selector, and menu with Apple's genuine iOS 26 Liquid Glass materials
+• Start any sound hands-free with Siri
+• Control playback from Control Center and the Lock Screen
+• Cleaner light and dark themes that match your system on first launch
+• Smoother, more responsive controls with accessibility improvements throughout
 
 Same great sounds. Same no-BS philosophy. Now with next-generation design.
 
@@ -152,40 +138,45 @@ One-time purchase, no subscriptions, no tracking, no account needed.
 
 ---
 
-## Screenshots Required
+## Screenshots
 
-### iPhone 6.9" (iPhone 17 Pro Max / 16 Pro Max)
-- **Required**: 1 screenshot minimum
-- **Recommended**: 3-5 screenshots
+### iPhone 6.9" (iPhone 17 Pro Max / 16 Pro Max) — READY ✅
 - **Resolution**: 1320 x 2868 pixels
+- **Location**: [`Screenshots/6.9-inch/`](Screenshots/6.9-inch/)
 
-**Screenshot Ideas:**
-1. Main screen with play button (not playing) - Light mode
-2. Main screen playing with pulse animation - Dark mode
-3. Sound selection menu expanded - Light mode
-4. Different sound selected (Fire or Rain) - Dark mode
-5. Theme switching demonstration
+A finished, captioned 5-shot set is generated and ready to upload:
 
-### iPhone 6.7" (iPhone 15 Pro Max / 14 Pro Max)
-- **Required**: 1 screenshot minimum
-- **Resolution**: 1290 x 2796 pixels
-- Use same concepts as 6.9" screenshots
+1. `01_main_light.png` — "White noise that just works" (light)
+2. `02_menu_light.png` — "Five clean sounds" (light, sound selector)
+3. `03_playing_dark.png` — "One tap. Focus for hours." (dark, playing)
+4. `04_menu_dark_fire.png` — "Real Liquid Glass" (dark, Fire selected)
+5. `05_main_dark.png` — "No ads. No tracking. No subscriptions." (dark)
 
-### iPhone 6.5" (iPhone 11 Pro Max and older)
-- **Required**: 1 screenshot minimum
-- **Resolution**: 1242 x 2688 pixels
-- Use same concepts as above
+App Store Connect requires only the 6.9" set for iPhone; it automatically
+down-scales these for 6.7"/6.5" listings, so no separate iPhone sizes are needed.
 
-### iPad Pro (12.9-inch) 3rd gen
-- **Optional but recommended**
-- **Resolution**: 2048 x 2732 pixels
+### iPad (13") — OPTIONAL
+- **Resolution**: 2064 x 2752 pixels
+- Regenerate with the iPad simulator using the same process below. Recommended
+  because the app ships as Universal (iPhone + iPad).
 
-**Screenshot Capture Instructions:**
-1. Run app in Simulator (iPhone 17 Pro Max)
-2. Navigate to the desired screen state
-3. Cmd+S to save screenshot
-4. Resize if needed using Preview or online tools
-5. Add subtle marketing text overlays if desired (optional)
+**How the screenshots were made / how to regenerate:**
+The raw frames are captured from the **iPhone 17 Pro Max** simulator using a
+DEBUG-only launch hook (`applyScreenshotStateIfNeeded` in `ContentView.swift`)
+that forces a deterministic UI state:
+
+```
+# clean status bar
+xcrun simctl status_bar "iPhone 17 Pro Max" override --time "9:41" \
+  --batteryLevel 100 --batteryState charged --cellularBars 4 --wifiBars 3
+
+# examples — env vars: UITEST_THEME=dark|light, UITEST_MENU=1, UITEST_SOUND=fire, UITEST_PLAYING=1
+SIMCTL_CHILD_UITEST_THEME=dark SIMCTL_CHILD_UITEST_MENU=1 SIMCTL_CHILD_UITEST_SOUND=fire \
+  xcrun simctl launch "iPhone 17 Pro Max" com.chandlercollins.No-BS-White-Noise
+xcrun simctl io "iPhone 17 Pro Max" screenshot raw.png
+```
+
+The captions/backgrounds are then composited with `Tools/make_screenshots.py`.
 
 ---
 
@@ -230,10 +221,11 @@ One-time purchase, no subscriptions, no tracking, no account needed.
 ## Build Information
 
 ### Archive Location
-`/Users/chandlercollins/NoBS-WhiteNoise-v2.0.xcarchive`
+Regenerate a fresh v2.1 archive before upload (Product → Archive).
 
 ### Minimum iOS Version
-iOS 18.2
+iOS 18.2 (real Liquid Glass is used on iOS 26+; iOS 18.2–25 fall back to a
+translucent-material rendering via `#available` checks)
 
 ### Supported Devices
 - iPhone (iOS 18.2+)
@@ -241,7 +233,7 @@ iOS 18.2
 
 ### Supported Orientations
 - **iPhone**: Portrait only
-- **iPad**: Portrait and Portrait Upside Down
+- **iPad**: All orientations (Portrait, Portrait Upside Down, Landscape Left/Right)
 
 ---
 

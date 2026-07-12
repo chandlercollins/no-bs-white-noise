@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcarchive
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# App Store screenshot intermediates (raw simulator captures).
+# Finished, captioned shots in Screenshots/ ARE tracked.
+raw/
